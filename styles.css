@@ -254,3 +254,27 @@ th { color: var(--muted); font-weight: 600; font-size: .75rem; text-transform: u
   .tiles { grid-template-columns: repeat(4, 1fr); }
   .facts { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ---------- linha do tempo (fases até a colheita) ---------- */
+.tl-mini { position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr); margin-top: 10px; }
+.tl-mini .tl-trilho, .tl-mini .tl-fill { position: absolute; top: 5px; height: 2px; left: calc(50% / var(--n)); border-radius: 2px; }
+.tl-mini .tl-trilho { right: calc(50% / var(--n)); background: var(--line); }
+.tl-mini .tl-fill { width: calc((100% - 100% / var(--n)) * var(--p)); background: var(--primary); }
+.tl-step { position: relative; text-align: center; min-width: 0; }
+.tl-step .tl-dot { display: block; width: 12px; height: 12px; margin: 0 auto 4px; border-radius: 50%; background: var(--card); border: 2px solid var(--line); position: relative; z-index: 1; }
+.tl-step b { display: block; font-size: .68rem; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-step small { display: block; font-size: .66rem; color: var(--muted); }
+.tl-step.done .tl-dot { background: var(--primary); border-color: var(--primary); }
+.tl-step.done b { color: var(--primary-strong); }
+.tl-step.atual .tl-dot { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); }
+.tl-step.atual b { color: var(--text); }
+.tl-full { list-style: none; margin: 0; padding: 0; }
+.tl-full li { display: flex; gap: 12px; position: relative; padding-bottom: 16px; opacity: .75; }
+.tl-full li:last-child { padding-bottom: 0; }
+.tl-full li::before { content: ""; position: absolute; left: 17px; top: 36px; bottom: 2px; width: 2px; background: var(--line); }
+.tl-full li:last-child::before { display: none; }
+.tl-full li.done::before { background: var(--primary); }
+.tl-full li.done, .tl-full li.atual { opacity: 1; }
+.tl-full .tl-ico { flex: 0 0 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--bg); border: 2px solid var(--line); font-size: 1.05rem; }
+.tl-full li.done .tl-ico { background: var(--primary-soft); border-color: var(--primary); }
+.tl-full li.atual .tl-ico { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); background: var(--card); }

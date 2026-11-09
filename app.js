@@ -3,7 +3,7 @@
    e podem ir para a nuvem (GitHub Gist) quando houver internet. */
 'use strict';
 
-const VERSAO = '1.4.0';
+const VERSAO = '1.5.0';
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -317,6 +317,72 @@ function cardAcao(a) {
     ${a.botao ? `<button class="btn sm soft" data-act="evento-rapido" data-pid="${a.pid}" data-tipo="${a.botao}">${btns[a.botao]}</button>` : a.pid ? `<a class="btn sm" href="#/p/${a.pid}">Ver</a>` : ''}
   </div>`;
 }
+/* =================== LINHA DO TEMPO (fases até a colheita) ===================
+   Datas previstas a partir da data de plantio + referências do catálogo.
+   Quando você registra "germinou", as fases seguintes se ajustam ao ritmo real. */
+function fasesPlantio(p, a = analisar(p)) {
+  const c = a.c, base = inicioDia(new Date(p.data)), G = c.germ || [5, 14], A = Math.max(c.alvo || 60, 3);
+  const naData = (d) => new Date(base.getTime() + Math.round(d) * DIA);
+  const tipo = norm(c.tipo || '');
+  const estaca = p.metodo === 'estaca', muda = !a.precisaGerm;
+  const germPrev = (G[0] + G[1]) / 2;
+  const desvio = a.germDia != null ? a.germDia - germPrev : 0;       // germinou antes/depois do previsto
+  const ajusta = (d) => Math.min(A + desvio, Math.max(d + desvio, (a.germDia ?? G[1]) + 1));
+  const f = [{ e: muda ? '🪴' : '🌰', curto: 'Plantio', nome: muda ? 'Plantio da muda' : estaca ? 'Plantio da estaca' : 'Semeadura', dia: 0, real: true, dica: 'Ponto de partida.' }];
+  if (!muda) f.push(a.germDia != null
+    ? { e: '🌱', curto: estaca ? 'Raiz' : 'Germina', nome: estaca ? 'Enraizou' : 'Germinou', dia: a.germDia, real: true, dica: `Aconteceu no dia ${a.germDia}.` }
+    : { e: '🌱', curto: estaca ? 'Raiz' : 'Germina', nome: estaca ? 'Enraizamento' : 'Germinação', dia: G[1], faixa: G, dica: `Esperado entre o dia ${G[0]} e o ${G[1]}. Mantenha o substrato úmido.` });
+  const meio = (frac) => G[1] + (A - G[1]) * frac;
+  let inter = [];
+  if (/broto/.test(tipo)) inter = [{ e: '🍃', curto: 'Folhinhas', nome: 'Folhinhas abertas', dia: Math.max(G[1] + 1, A - 3), dica: 'Tire a tampa/peso e dê luz para esverdear.' }];
+  else if (/fruto/.test(tipo)) inter = [
+    { e: '🍃', curto: 'Folhas', nome: 'Folhas verdadeiras', dia: G[1] + 10, dica: 'Hora de adubar leve e, se for o caso, transplantar.' },
+    { e: '🌼', curto: 'Flores', nome: 'Floração', dia: meio(0.6), dica: 'Ajude a polinização: balance a planta ou use um pincel.' }];
+  else if (/raiz/.test(tipo)) inter = [
+    { e: '🍃', curto: 'Folhas', nome: 'Folhas verdadeiras', dia: G[1] + 8, dica: 'Faça o desbaste: deixe as mais fortes com espaço.' },
+    { e: '🥕', curto: 'Engrossa', nome: 'Raiz engrossando', dia: meio(0.6), dica: 'Rega constante evita raiz rachada.' }];
+  else if (/muda/.test(tipo)) inter = [
+    { e: '🍃', curto: 'Folhas', nome: 'Folhas verdadeiras', dia: G[1] + 10, dica: 'Comece a adubar leve a cada 15 dias.' },
+    { e: '☀️', curto: 'Rustifica', nome: 'Rustificação', dia: A - 7, dica: 'Aumente o sol aos poucos para a muda se acostumar ao campo.' }];
+  else inter = [
+    { e: '🍃', curto: 'Folhas', nome: 'Folhas verdadeiras', dia: G[1] + 7, dica: 'Desbaste e primeira adubação leve.' },
+    { e: '🌿', curto: 'Cresce', nome: 'Crescimento forte', dia: meio(0.55), dica: 'Fase que mais pede luz e água.' }];
+  if (muda) inter = inter.filter((x) => x.curto !== 'Folhas');
+  for (const x of inter) f.push({ ...x, dia: muda ? x.dia : ajusta(x.dia) });
+  const colh = ev(p, 'colheita')[0];
+  const ultimo = c.alvoLabel || 'colheita';
+  f.push(colh
+    ? { e: '🧺', curto: 'Colheita', nome: ultimo.charAt(0).toUpperCase() + ultimo.slice(1), dia: diasDesde(p.data, new Date(colh.data)), real: true, dica: 'Registrado ✓' }
+    : { e: '🧺', curto: /muda/.test(ultimo) ? 'Pronta' : 'Colheita', nome: ultimo.charAt(0).toUpperCase() + ultimo.slice(1), dia: A + (muda ? 0 : desvio), dica: `Referência de ~${A} dias.` });
+  // ordena, marca concluídas e a fase atual
+  f.sort((x, y) => x.dia - y.dia);
+  for (const x of f) { x.dia = Math.round(x.dia); x.data = naData(x.dia); x.feito = x.real || a.dia >= x.dia; }
+  if (!a.germinou && a.precisaGerm) for (const x of f) if (x.dia > (G[1])) x.feito = false;   // nada adiante enquanto não germinar
+  const prox = f.findIndex((x) => !x.feito); if (prox >= 0) f[prox].atual = true;
+  return f;
+}
+const fmtCurta = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+function htmlLinhaMini(p, a) {
+  const f = fasesPlantio(p, a), n = f.length;
+  let iFeito = -1; f.forEach((x, i) => { if (x.feito) iFeito = i; });
+  let frac = 0;
+  if (iFeito >= 0 && iFeito < n - 1) { const x = f[iFeito], y = f[iFeito + 1]; frac = Math.max(0, Math.min(1, (a.dia - x.dia) / Math.max(1, y.dia - x.dia))); }
+  const pos = n > 1 ? Math.min(1, (Math.max(0, iFeito) + frac) / (n - 1)) : 1;
+  return `<div class="tl-mini" style="--n:${n}">
+    <i class="tl-trilho"></i><i class="tl-fill" style="--p:${pos}"></i>
+    ${f.map((x) => `<div class="tl-step ${x.feito ? 'done' : ''} ${x.atual ? 'atual' : ''}" title="${h(x.nome)} — ${x.real ? '' : 'previsão '}${fmtData(x.data.toISOString(), false)}">
+      <span class="tl-dot"></span><b>${h(x.curto)}</b><small>${x.real || x.feito ? '' : '~'}${fmtCurta(x.data)}</small></div>`).join('')}
+  </div>`;
+}
+function htmlLinhaCompleta(p, a) {
+  const f = fasesPlantio(p, a);
+  return `<ol class="tl-full">${f.map((x) => {
+    const falta = diasDesde(new Date().toISOString(), x.data);
+    const quando = x.real ? `${fmtData(x.data.toISOString(), false)} · dia ${x.dia}` : `${x.faixa ? `entre ${fmtCurta(new Date(new Date(p.data).getTime() + x.faixa[0] * DIA))} e ` : '~'}${fmtData(x.data.toISOString(), false)} · dia ${x.dia}${!x.feito && falta > 0 ? ` · em ${plural(falta, 'dia')}` : ''}`;
+    return `<li class="${x.feito ? 'done' : ''} ${x.atual ? 'atual' : ''}"><span class="tl-ico">${x.e}</span><div><b>${h(x.nome)}</b>${x.atual ? ' <span class="chip blue" style="font-size:.7rem">próxima</span>' : ''}<div class="small muted">${quando}</div>${x.atual || !x.feito ? `<div class="small" style="margin-top:2px">${h(x.dica)}</div>` : ''}</div></li>`;
+  }).join('')}</ol><p class="small muted" style="margin:8px 0 0">Datas com ~ são previsões pela média da cultura; registrar "germinou" e "colheita" deixa tudo mais preciso.</p>`;
+}
+
 function cardPlantio(p) {
   const a = analisar(p); const c = a.c;
   return `<a class="card plant" href="#/p/${p.id}">
@@ -324,7 +390,7 @@ function cardPlantio(p) {
     <div class="info">
       <b>${h(nomePlantio(p))}</b>
       <div class="row wrap small"><span class="chip ${a.chip}">${h(a.fase)}</span><span class="muted">Dia ${a.dia} · ${h(p.local || 'sem local')}</span></div>
-      ${a.ativo ? `<div class="progress" title="${a.progresso}% até ${h(c.alvoLabel)}"><i style="width:${a.progresso}%"></i></div>` : ''}
+      ${a.ativo ? htmlLinhaMini(p, a) : ''}
     </div>
   </a>`;
 }
@@ -516,6 +582,7 @@ function viewDetalhe(id) {
       ${a.ativo ? `<div style="margin-top:14px"><div class="row between small"><span>Dia <b>${a.dia}</b></span><span class="muted">${a.alvoFalta > 0 ? `faltam ~${a.alvoFalta} dias p/ ${h(c.alvoLabel)}` : h(c.alvoLabel) + ' 🎉'}</span></div><div class="progress"><i style="width:${a.progresso}%"></i></div></div>` : ''}
       ${a.acoes.length ? `<div style="margin-top:14px">${a.acoes.map(cardAcao).join('')}</div>` : ''}
     </section>
+    ${a.ativo ? `<section class="section"><h2>Linha do tempo até ${h(c.alvoLabel)}</h2><div class="card">${htmlLinhaCompleta(p, a)}</div></section>` : ''}
 
     <section class="section"><h2>Registrar agora</h2>
       <div class="events-btns">${Object.entries(window.EVENTOS).map(([k, v]) => `<button data-act="novo-evento" data-pid="${p.id}" data-tipo="${k}"><span>${v.e}</span>${v.nome.split('/')[0]}</button>`).join('')}</div>
