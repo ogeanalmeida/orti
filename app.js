@@ -3,7 +3,7 @@
    e podem ir para a nuvem (GitHub Gist) quando houver internet. */
 'use strict';
 
-const VERSAO = '1.0.0';
+const VERSAO = '1.4.0';
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -41,7 +41,7 @@ const idb = {
 };
 
 const estadoPadrao = () => ({
-  versao: 1, plantios: [], leituras: [], culturasCustom: [], chat: [], wiki: {}, clima: null, atualizadoEm: null
+  versao: 1, plantios: [], leituras: [], culturasCustom: [], chat: [], wiki: {}, clima: null, atualizadoEm: null, apagados: {}
 });
 let state = estadoPadrao();
 
@@ -51,6 +51,7 @@ const cfgPadrao = () => ({
   ia: { provedor: 'gemini', chave: '', modelo: '', baseUrl: '' },
   gist: { token: '', id: '', auto: true, ultimo: null, pendente: false },
   sensor: { url: '', intervalo: 0, plantioId: '' },
+  luz: { tipo: 'sol', r10: 15000, gama: 0.7, rFixo: 10000 },
   tema: {}
 });
 let cfg = cfgPadrao();
@@ -73,16 +74,46 @@ async function carregarEstado() {
   } catch {
     try { const s = JSON.parse(localStorage.getItem('horta-state') || 'null'); if (s) state = Object.assign(estadoPadrao(), s); } catch {}
   }
+  state.apagados ||= {};
+  fotoIds = indexarIds(state);
+}
+
+/* ---- rastreio de mudanças (para sincronizar entre aparelhos sem perder nada) ----
+   Cada plantio/cultura ganha "mod" (quando foi alterado) e cada item apagado
+   vira um registro em state.apagados — assim o outro aparelho sabe o que sumiu. */
+let fotoIds = null;
+const semMod = (o) => JSON.stringify(o, (k, v) => (k === 'mod' ? undefined : v));
+function indexarIds(st) {
+  const m = new Map();
+  for (const p of st.plantios || []) { m.set('p:' + p.id, semMod(p)); for (const e of p.eventos || []) m.set('e:' + e.id, 1); }
+  for (const l of st.leituras || []) m.set('l:' + l.id, 1);
+  for (const c of st.culturasCustom || []) m.set('c:' + c.id, semMod(c));
+  return m;
+}
+function marcarMudancas() {
+  const agora = Date.now(); state.apagados ||= {};
+  if (fotoIds) {
+    for (const p of state.plantios) if (fotoIds.get('p:' + p.id) !== semMod(p)) p.mod = agora;
+    for (const c of state.culturasCustom || []) if (fotoIds.get('c:' + c.id) !== semMod(c)) c.mod = agora;
+    for (const l of state.leituras) if (!fotoIds.has('l:' + l.id)) l.mod = agora;
+    const atual = indexarIds(state);
+    for (const k of fotoIds.keys()) if (!atual.has(k)) state.apagados[k] = agora;
+  }
+  fotoIds = indexarIds(state);
+}
+async function gravarLocal() {
+  try { await idb.set('state', state); }
+  catch { try { localStorage.setItem('horta-state', JSON.stringify(state)); } catch { toast('⚠ Sem espaço para salvar. Faça um backup e apague fotos antigas.'); } }
 }
 let backupTimer = null;
 async function salvar() {
   state.atualizadoEm = new Date().toISOString();
-  try { await idb.set('state', state); }
-  catch { try { localStorage.setItem('horta-state', JSON.stringify(state)); } catch { toast('⚠ Sem espaço para salvar. Faça um backup e apague fotos antigas.'); } }
+  marcarMudancas();
+  await gravarLocal();
   if (cfg.gist.token && cfg.gist.auto) {
     cfg.gist.pendente = true; salvarCfg();
     clearTimeout(backupTimer);
-    backupTimer = setTimeout(() => { if (navigator.onLine) gistBackup(true).catch(() => {}); }, 20000);
+    backupTimer = setTimeout(() => { if (navigator.onLine) gistSincronizar(true).catch(() => {}); }, 5000);
   }
 }
 
@@ -148,7 +179,10 @@ function analisar(p) {
     // Rega
     let precisaRegar = regaFalta <= 0;
     let subRega = diasSemRega === 0 ? 'Última rega hoje' : `Última rega há ${plural(diasSemRega, 'dia')}`;
-    if (leit && leit.umidadeSolo != null && c.umid && new Date(leit.data) > new Date(ultRega)) {
+    if (leit && leit.estado && leit.umidadeSolo != null && new Date(leit.data) > new Date(ultRega)) {
+      precisaRegar = leit.estado !== 'ok';
+      subRega = `Sensor do Arduino: solo com ${leit.umidadeSolo}% (${leit.estado === 'seco' ? 'seco' : leit.estado === 'atencao' ? 'quase seco' : 'úmido'})`;
+    } else if (leit && leit.umidadeSolo != null && c.umid && new Date(leit.data) > new Date(ultRega)) {
       if (leit.umidadeSolo >= c.umid[0]) { precisaRegar = false; }
       else { precisaRegar = true; subRega = `Sensor: solo com ${leit.umidadeSolo}% (ideal ${c.umid[0]}–${c.umid[1]}%)`; }
     }
@@ -163,6 +197,24 @@ function analisar(p) {
     if (germinou) {
       if (alvoFalta <= 0) acoes.push({ pri: 2, tipo: 'media', e: '🧺', titulo: `${nome}: pronto para ${c.alvoLabel}`, sub: `Referência: ~${c.alvo} dias. Hoje é o dia ${dia}.`, pid: p.id, botao: 'colheita' });
       else if (alvoFalta <= 7) acoes.push({ pri: 3, tipo: 'baixa', e: '📅', titulo: `${nome}: ${c.alvoLabel} em ~${plural(alvoFalta, 'dia')}`, sub: 'Vá observando o tamanho e a cor.', pid: p.id });
+    }
+    // Luz acumulada (DLI) — só para o plantio onde está o sensor
+    let avisouDli = false;
+    const dHoje = luzDias[hojeChave()], dOntem = luzDias[hojeChave(new Date(Date.now() - 864e5))], alvo = alvoDli(p);
+    if (alvo && cfg.sensor.plantioId === p.id) {
+      const agoraH = new Date().getHours();
+      const diaLuz = (agoraH >= 17 && dHoje && dHoje.segMed >= 6 * 3600) ? ['hoje', dHoje] : (dOntem && dOntem.segMed >= 8 * 3600) ? ['ontem', dOntem] : null;
+      if (diaLuz && diaLuz[1].mol < alvo[0]) {
+        const falta = alvo[0] - diaLuz[1].mol, horas = Math.ceil(falta / (PPFD_LUZ_CULTIVO * 0.0036) * 2) / 2;
+        acoes.push({ pri: 1, tipo: 'media', e: '☀️', titulo: `${nome}: faltou luz ${diaLuz[0]}`, sub: `Recebeu ${fmtMol(diaLuz[1].mol)} mol/m² de ${alvo[0]}–${alvo[1]} ideais (${Math.round(diaLuz[1].mol / alvo[0] * 100)}%). Leve para um lugar mais claro ou complete com ~${String(horas).replace('.', ',')} h de luz de cultivo bem perto.`, pid: p.id });
+        avisouDli = true;
+      }
+    }
+    // Luz (LDR): média das leituras de dia (9h–16h) nas últimas 48h
+    const leitsLuz = state.leituras.filter((l) => l.plantioId === p.id && l.luz != null && Date.now() - new Date(l.data) < 48 * 3600e3 && new Date(l.data).getHours() >= 9 && new Date(l.data).getHours() < 16);
+    if (!avisouDli && leitsLuz.length >= 3) {
+      const media = Math.round(leitsLuz.reduce((a, l) => a + l.luz, 0) / leitsLuz.length);
+      if (media < 20) acoes.push({ pri: 2, tipo: 'media', e: '☀️', titulo: `${nome}: pouca luz durante o dia`, sub: `O sensor de luz marcou em média ${media}% entre 9h e 16h. Hortaliças gostam de 4–6 h de sol: leve para mais perto da janela.`, pid: p.id });
     }
     // Sensores fora da faixa
     if (leit) {
@@ -297,6 +349,7 @@ function viewInicio() {
     <p class="muted small" style="margin:0">${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
     <h1>${saudacao()}${cfg.nome ? ', ' + h(cfg.nome) : ''}!</h1>
     <p style="margin:6px 0 0">${h(resumo)}</p>
+    <div style="margin-top:8px">${chipSerialHome()}</div>
     ${cl && cl.atual ? `<p class="muted small" style="margin:8px 0 0">${WMO(cl.atual.code)[0]} ${Math.round(cl.atual.temp)}°C agora em ${h(cfg.local?.nome || '')} · máx ${Math.round(cl.dias[0].max)}° · chuva ${cl.dias[0].chuva}%</p>` : `<p class="small" style="margin:8px 0 0"><a href="#/clima" style="color:#fff">☀️ Definir minha cidade para ver o clima</a></p>`}
   </section>
 
@@ -491,7 +544,7 @@ function viewDetalhe(id) {
         ${l0.ph != null ? `<span class="chip">🧪 pH ${l0.ph}</span>` : ''}
         ${l0.temp != null ? `<span class="chip warn">🌡️ ${l0.temp}°C</span>` : ''}
         ${l0.umidadeAr != null ? `<span class="chip blue">💨 Ar ${l0.umidadeAr}%</span>` : ''}
-        ${l0.luz != null ? `<span class="chip warn">☀️ Luz ${l0.luz}</span>` : ''}
+        ${l0.luz != null ? `<span class="chip warn">☀️ Luz ${l0.luz}%</span>` : ''}
         </div><p class="small muted" style="margin:8px 0 0">Última leitura: ${fmtData(l0.data)} (${l0.origem}) · ${leits.length} leituras</p>`
         : `<p class="small muted" style="margin:0">Sem leituras ainda. Quando os sensores chegarem, elas aparecem aqui — por enquanto você pode lançar à mão.</p>`}
         <button class="btn sm soft" style="margin-top:10px" data-act="leitura-manual" data-pid="${p.id}">+ Lançar leitura</button>
@@ -659,7 +712,7 @@ function viewDados() {
   const leits = [...state.leituras].sort((a, b) => new Date(a.data) - new Date(b.data)).slice(-80);
   return `<h1>Dados</h1>${seg}
     <section class="card"><h3>Dias para germinar — real × referência</h3><div style="margin-top:10px">${svgBarras(grupos)}</div></section>
-    <section class="card"><h3>Sensores (últimas leituras)</h3><div style="margin-top:10px">${svgLinhas(leits, [['umidadeSolo', 'Umidade solo %', 'var(--info)'], ['temp', 'Temp °C', 'var(--accent)'], ['umidadeAr', 'Umidade ar %', 'var(--primary)']])}</div></section>
+    <section class="card"><h3>Sensores (últimas leituras)</h3><div style="margin-top:10px">${svgLinhas(leits, [['umidadeSolo', 'Umidade solo %', 'var(--info)'], ['luz', 'Luz %', '#d19a0b'], ['temp', 'Temp °C', 'var(--danger)'], ['umidadeAr', 'Umidade ar %', 'var(--primary)']])}</div></section>
     <section class="section"><h2>Todos os plantios</h2><div class="card table-wrap"><table>
       <thead><tr><th>Planta</th><th>Plantio</th><th>Método</th><th>Local</th><th>Dia</th><th>Germinou</th><th>Regas</th><th>Colheitas</th><th>Situação</th></tr></thead>
       <tbody>${[...state.plantios].sort((a, b) => new Date(b.data) - new Date(a.data)).map((p) => { const a = analisar(p); return `<tr onclick="location.hash='#/p/${p.id}'" style="cursor:pointer">
@@ -864,13 +917,43 @@ function viewMais() {
   <label class="field"><span>Como posso te chamar?</span><input type="text" id="nomeUser" value="${h(cfg.nome)}" placeholder="Seu nome"></label>`;
 }
 
+function htmlLuzDias() {
+  const ks = Object.keys(luzDias).sort().reverse().slice(0, 7);
+  if (!ks.length) return '';
+  return `<div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Dia</th><th>DLI</th><th>Luz útil</th><th>Medido</th><th>Máx. lux</th><th>Luz</th></tr></thead><tbody>${ks.map((k) => { const d = luzDias[k]; const [a, m, dd] = k.split('-'); return `<tr><td>${dd}/${m}</td><td><b>${fmtMol(d.mol)}</b></td><td>${fmtHoras(d.segLuz)}</td><td>${fmtHoras(d.segMed)}</td><td>${Math.round(d.maxLux).toLocaleString('pt-BR')}</td><td>${(TIPOS_LUZ[d.tipo] || ['?'])[0].split(' ')[0]}</td></tr>`; }).join('')}</tbody></table></div>
+  <p class="small muted" style="margin:6px 0 0">DLI em mol/m²/dia. Se o Arduino ficou desconectado parte do dia, o valor real é maior que o medido.</p>`;
+}
+
 function viewSensores() {
   const leits = [...state.leituras].sort((a, b) => new Date(b.data) - new Date(a.data));
   return {
     html: `<a href="#/mais" class="small">← Mais</a><h1 style="margin-top:8px">Sensores</h1>
-    <p class="muted small">Por enquanto você lança as leituras à mão. Quando montar o ESP32 (umidade do solo, pH, temperatura/umidade do ar, luz), o app lê sozinho por um endereço na internet.</p>
-    <button class="btn primary block" data-act="leitura-manual">+ Lançar leitura manual</button>
-    <section class="card" style="margin-top:14px"><h3>Conexão automática (futuro)</h3>
+    <p class="muted small">Três jeitos de alimentar os dados: Arduino pelo cabo USB (umidade do solo e luz), leitura manual, ou ESP32 pelo Wi-Fi.</p>
+    <section class="card" style="margin-bottom:14px"><h3>🔌 Arduino pelo cabo USB</h3>
+      <p class="small muted">Funciona no computador com Chrome, Edge ou Opera (Safari não tem esse recurso). Feche o Monitor Serial do Arduino IDE antes de conectar.</p>
+      <div id="serialAoVivo">${htmlSerialAoVivo()}</div>
+      <div class="row wrap" style="margin-top:10px">
+        ${serialPorta ? '<button class="btn" data-act="serial-desconectar">Desconectar</button>' : '<button class="btn primary" data-act="serial-conectar">Conectar Arduino</button>'}
+        <label class="small row">Guardar no histórico a cada
+          <select id="serialGravar" style="width:auto;padding:6px 30px 6px 10px">${[[1, '1 min'], [5, '5 min'], [15, '15 min'], [30, '30 min'], [60, '1 h']].map(([v, l]) => `<option value="${v}" ${Number(cfg.sensor.serialGravar || 5) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      </div>
+      <p class="small muted" style="margin:10px 0 0">O valor ao vivo atualiza a cada poucos segundos; no histórico entra uma leitura no intervalo escolhido. Se o "ID do sensor" de um plantio for <b>${h(cfg.sensor.ultimoIdSerial || 'arduino-vaso1')}</b>, a leitura vai para ele.</p>
+    </section>
+    <section class="card" style="margin-bottom:14px"><h3>☀️ Sensor de luz (LDR)</h3>
+      <p class="small muted">O LDR mede quanto de luz chega, mas não sabe de onde ela vem. Diga qual é a luz principal do vaso para o app converter em luz útil para a planta.</p>
+      <div class="grid2">
+        <label class="field"><span>Tipo de luz</span><select id="luzTipo">${Object.entries(TIPOS_LUZ).map(([k, [n]]) => `<option value="${k}" ${cfg.luz.tipo === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label class="field"><span>Sensor está no plantio</span><select id="luzPid"><option value="">(ambiente)</option>${state.plantios.filter((p) => (p.status || 'ativo') === 'ativo').map((p) => `<option value="${p.id}" ${cfg.sensor.plantioId === p.id ? 'selected' : ''}>${h(nomePlantio(p))}</option>`).join('')}</select></label>
+      </div>
+      <details style="margin-top:10px"><summary class="small"><b>Calibrar o lux com o celular</b></summary>
+        <p class="small muted">Abra um app de luxímetro no celular, coloque o celular colado no LDR e digite o valor. O app ajusta a fórmula para bater.</p>
+        <div class="row wrap"><input type="number" id="luxRef" placeholder="lux do celular" style="width:160px"><button class="btn soft" data-act="luz-calibrar">Calibrar</button><button class="btn" data-act="luz-reset">Voltar ao padrão</button></div>
+        <p class="small muted" style="margin:8px 0 0">Ajuste atual: R10 = ${Math.round(cfg.luz.r10)} Ω · gama = ${cfg.luz.gama} · resistor fixo = ${cfg.luz.rFixo} Ω</p>
+      </details>
+      ${htmlLuzDias()}
+    </section>
+    <button class="btn soft block" data-act="leitura-manual">+ Lançar leitura manual</button>
+    <section class="card" style="margin-top:14px"><h3>Conexão por Wi-Fi (futuro, ESP32)</h3>
       <label class="field"><span>Endereço (URL) que devolve as leituras em JSON</span><input type="url" id="sUrl" value="${h(cfg.sensor.url)}" placeholder="https://…/leituras.json"></label>
       <div class="grid2">
         <label class="field"><span>Ler a cada</span><select id="sInt">${[[0, 'Só manual'], [1, '1 minuto'], [5, '5 minutos'], [15, '15 minutos'], [60, '1 hora']].map(([v, l]) => `<option value="${v}" ${Number(cfg.sensor.intervalo) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -912,16 +995,254 @@ async function lerSensor(silencioso) {
   if (['#/', '#/sensores', ''].includes(location.hash) || location.hash.startsWith('#/p/')) render();
 }
 
+/* ---------- Arduino via USB (Web Serial) ---------- */
+let serialPorta = null, serialLeitor = null, serialPipe = null, serialAoVivo = null, serialUltimaGravacao = 0;
+const ESTADO_SERIAL = { ok: ['chip', '🌿 Úmido'], atencao: ['chip warn', '⚠ Quase seco'], seco: ['chip bad', '🔴 Seco'] };
+function htmlSerialAoVivo() {
+  if (!serialPorta) return '<p class="small" style="margin:0">⚪ Desconectado</p>';
+  if (!serialAoVivo) return '<p class="small" style="margin:0">🟢 Conectado — aguardando a primeira leitura…</p>';
+  const s = serialAoVivo; const [cls, txt] = ESTADO_SERIAL[s.estado] || ['chip', s.estado || ''];
+  return `<div class="row wrap" style="gap:18px">
+    ${s.umidadeSolo != null ? `<div><div class="small muted">💧 Umidade do solo</div><span style="font-size:2rem;font-weight:700;color:var(--primary-strong)">${s.umidadeSolo}%</span> <span class="${cls}">${h(txt)}</span></div>` : ''}
+    ${s.luz != null ? `<div><div class="small muted">☀️ Luz</div><span style="font-size:2rem;font-weight:700;color:#b07d10">${s.luz}%</span> <span class="chip warn">${h(nivelLuz(s.luz))}</span>${s.lux != null ? `<div class="small muted">≈ ${s.lux.toLocaleString('pt-BR')} lux · ${s.ppfd} µmol/m²/s</div>` : ''}</div>` : ''}
+  </div><p class="small muted" style="margin:6px 0 0">bruto solo ${s.bruto ?? '—'} · bruto luz ${s.luzBruto ?? '—'} · ${new Date(s.data).toLocaleTimeString('pt-BR')}</p>${htmlLuzHoje()}`;
+}
+function atualizarAoVivoDom() { const el = $('#serialAoVivo'); if (el) el.innerHTML = htmlSerialAoVivo(); const ch = $('#chipSerial'); if (ch) ch.outerHTML = chipSerialHome(); }
+function chipSerialHome() {
+  if (!serialPorta || !serialAoVivo) return '<span id="chipSerial"></span>';
+  const [cls, txt] = ESTADO_SERIAL[serialAoVivo.estado] || ['chip', ''];
+  const partes = [];
+  if (serialAoVivo.umidadeSolo != null) partes.push(`💧 ${serialAoVivo.umidadeSolo}% · ${txt}`);
+  if (serialAoVivo.luz != null) partes.push(`☀️ ${serialAoVivo.luz}%`);
+  return `<a id="chipSerial" href="#/sensores" class="${cls}" style="text-decoration:none">🔌 Arduino: ${h(partes.join(' · '))}</a>`;
+}
+async function conectarSerial() {
+  if (!('serial' in navigator)) { toast('Este navegador não fala com USB. Use Chrome, Edge ou Opera no computador.', 4000); return; }
+  try { serialPorta = await navigator.serial.requestPort(); await serialPorta.open({ baudRate: 9600 }); }
+  catch (e) { serialPorta = null; if (e.name !== 'NotFoundError') toast('⚠ ' + (e.name === 'InvalidStateError' ? 'Porta ocupada: feche o Monitor Serial do Arduino IDE.' : e.message), 4500); return; }
+  toast('🔌 Arduino conectado'); render();
+  const dec = new TextDecoderStream();
+  serialPipe = serialPorta.readable.pipeTo(dec.writable).catch(() => {});
+  serialLeitor = dec.readable.getReader();
+  let buf = '';
+  try {
+    while (true) {
+      const { value, done } = await serialLeitor.read(); if (done) break;
+      buf += value; let i;
+      while ((i = buf.indexOf('\n')) >= 0) { const linha = buf.slice(0, i).trim(); buf = buf.slice(i + 1); if (linha) processarLinhaSerial(linha); }
+      if (buf.length > 2000) buf = '';
+    }
+  } catch {} finally { try { serialLeitor.releaseLock(); } catch {} }
+}
+async function desconectarSerial(silencioso) {
+  try { if (serialLeitor) await serialLeitor.cancel(); } catch {}
+  try { if (serialPipe) await serialPipe; } catch {}
+  try { if (serialPorta) await serialPorta.close(); } catch {}
+  serialPorta = serialLeitor = serialPipe = null; serialAoVivo = null;
+  if (!silencioso) toast('Arduino desconectado');
+  render();
+}
+/* Aceita três formatos vindos do Arduino/ESP32:
+   JSON ............ {"umidade_solo":62,"luz":40}
+   Plotter ......... Umidade:62,Luz:40,SoloBruto:620,LuzBruto:410
+   Texto ........... Umidade: 62% | Luz: 40%                       */
+const LIMITE_SECO = 30, LIMITE_ATENCAO = 45;
+function nivelLuz(p) { return p < 10 ? 'escuro' : p < 35 ? 'pouca luz' : p < 70 ? 'luz média' : 'luz forte'; }
+
+/* =================== LUZ PARA PLANTAS (LDR → lux → PPFD → DLI) ===================
+   lux  = estimativa a partir do valor bruto do LDR (circuito 5V–LDR–A1–resistor–GND)
+   PPFD = luz que a planta usa (µmol/m²/s) ≈ lux × fator do tipo de luz
+   DLI  = luz acumulada no dia (mol/m²/dia) = soma de PPFD × segundos ÷ 1.000.000   */
+const TIPOS_LUZ = {
+  sol: ['☀️ Sol (janela ou ar livre)', 0.0185],
+  led: ['💡 LED branco comum', 0.015],
+  ledfull: ['🌈 LED de cultivo branco (full spectrum)', 0.017],
+  cultivo: ['🟣 LED de cultivo roxo (vermelho + azul)', 0.04],
+  fluor: ['🔆 Fluorescente branca', 0.0135],
+  sodio: ['🟠 Vapor de sódio (amarela)', 0.0122]
+};
+// Metas de DLI (mol/m²/dia) — referências médias; ajuste conforme a planta responder.
+const DLI_ALVO = { alface: [12, 17], rucula: [12, 17], coentro: [10, 16], cebolinha: [10, 16], salsinha: [10, 16], manjericao: [12, 18], hortela: [10, 16], couve: [12, 17], espinafre: [10, 15], rabanete: [12, 17], cenoura: [15, 22], beterraba: [15, 22], 'tomate-cereja': [20, 30], pimenta: [18, 30], pimentao: [18, 30], pepino: [18, 30], morango: [15, 20], microverdes: [6, 12], maracuja: [15, 25], melancia: [20, 30], mamao: [20, 30] };
+const LUX_LUZ_UTIL = 1000;      // acima disso conta como "hora de luz útil"
+const PPFD_LUZ_CULTIVO = 150;   // luz de cultivo forte, perto da planta (para sugerir horas extras)
+const fatorLuz = () => (TIPOS_LUZ[cfg.luz?.tipo] || TIPOS_LUZ.sol)[1];
+function luxDoBruto(b) {
+  if (b == null || isNaN(b)) return null;
+  const L = { ...cfgPadrao().luz, ...(cfg.luz || {}) };
+  if (b <= 0) return 0;
+  const bb = Math.min(b, 1022);
+  const R = L.rFixo * (1023 / bb - 1);            // resistência do LDR (Ω)
+  return Math.round(Math.min(150000, 10 * Math.pow(L.r10 / R, 1 / L.gama)));
+}
+const ppfdDoLux = (lux) => lux == null ? null : Math.round(lux * fatorLuz());
+const alvoDli = (p) => DLI_ALVO[p?.cultura] || null;
+const hojeChave = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+let luzDias = (() => { try { return JSON.parse(localStorage.getItem('horta-luz-dias') || '{}'); } catch { return {}; } })();
+let luzUltimoTs = 0, luzUltimoSalvo = 0;
+function acumularLuz(lux) {
+  const agora = Date.now(), k = hojeChave();
+  const d = luzDias[k] ||= { mol: 0, segLuz: 0, segMed: 0, maxLux: 0, tipo: cfg.luz.tipo, plantioId: cfg.sensor.plantioId || '' };
+  const dt = (agora - luzUltimoTs) / 1000;
+  if (luzUltimoTs && dt > 0 && dt <= 120) {       // buracos maiores (cabo solto) não contam
+    d.mol += (lux * fatorLuz()) * dt / 1e6;
+    d.segMed += dt;
+    if (lux >= LUX_LUZ_UTIL) d.segLuz += dt;
+  }
+  d.maxLux = Math.max(d.maxLux, lux); d.tipo = cfg.luz.tipo; d.plantioId = cfg.sensor.plantioId || d.plantioId;
+  luzUltimoTs = agora;
+  if (agora - luzUltimoSalvo > 30e3) salvarLuzDias();
+}
+function salvarLuzDias() {
+  luzUltimoSalvo = Date.now();
+  const chaves = Object.keys(luzDias).sort(); while (chaves.length > 60) delete luzDias[chaves.shift()];
+  try { localStorage.setItem('horta-luz-dias', JSON.stringify(luzDias)); } catch {}
+}
+window.addEventListener('pagehide', salvarLuzDias);
+const fmtMol = (v) => v.toFixed(1).replace('.', ',');
+const fmtHoras = (seg) => { const m = Math.round(seg / 60); return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`; };
+function htmlLuzHoje() {
+  const d = luzDias[hojeChave()];
+  if (!d || d.segMed < 60) return '<p class="small muted" style="margin:8px 0 0">☀️ Luz do dia: conecte o Arduino para começar a acumular (precisa do valor <b>LuzBruto</b>).</p>';
+  const p = state.plantios.find((x) => x.id === d.plantioId); const alvo = alvoDli(p);
+  const pct = alvo ? Math.min(100, Math.round(d.mol / alvo[0] * 100)) : null;
+  return `<div style="margin-top:10px;padding:10px 12px;background:var(--bg);border-radius:12px">
+    <div class="row wrap between"><b class="small">☀️ Luz acumulada hoje</b><span class="small muted">medido por ${fmtHoras(d.segMed)}</span></div>
+    <div class="row wrap" style="gap:16px;margin-top:4px"><span><b style="font-size:1.3rem">${fmtMol(d.mol)}</b> <span class="small muted">mol/m² (DLI)</span></span><span><b>${fmtHoras(d.segLuz)}</b> <span class="small muted">de luz útil</span></span></div>
+    ${alvo ? `<div class="small muted" style="margin-top:6px">${h(nomePlantio(p))}: meta ${alvo[0]}–${alvo[1]} mol/m²/dia</div><div style="height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:4px"><i style="display:block;height:100%;width:${pct}%;background:${pct >= 100 ? 'var(--primary)' : '#d19a0b'}"></i></div>` : ''}
+  </div>`;
+}
+function lerLinhaSensor(linha) {
+  let o = null;
+  if (linha.startsWith('{')) { try { o = JSON.parse(linha); } catch {} }
+  const chaves = {};
+  if (o) { for (const [k, v] of Object.entries(o)) chaves[norm(k).replace(/[^a-z0-9]/g, '')] = v; }
+  else {
+    const re = /([A-Za-zÀ-ÿ_]+)\s*[:=]\s*(-?\d+(?:[.,]\d+)?)/g; let m;
+    while ((m = re.exec(linha))) chaves[norm(m[1]).replace(/[^a-z0-9]/g, '')] = Number(m[2].replace(',', '.'));
+  }
+  if (!Object.keys(chaves).length) return null;
+  const num = (...ks) => { for (const k of ks) { const v = chaves[k]; if (v != null && v !== '' && !isNaN(Number(v))) return Number(v); } return null; };
+  const r = {
+    umidadeSolo: num('umidadesolo', 'umidade', 'solo', 'soil', 'soilmoisture'),
+    bruto: num('bruto', 'solobruto'),
+    luz: num('luz', 'light', 'lux', 'ldr', 'luminosidade'),
+    luzBruto: num('luzbruto', 'ldrbruto'),
+    temp: num('temperatura', 'temp', 'temperature'),
+    umidadeAr: num('umidadear', 'humidity'),
+    ph: num('ph'),
+    estado: typeof chaves.estado === 'string' ? chaves.estado : '',
+    sensor: typeof chaves.sensor === 'string' ? chaves.sensor : ''
+  };
+  if ([r.umidadeSolo, r.luz, r.temp, r.umidadeAr, r.ph].every((v) => v == null)) return null;
+  if (!r.estado && r.umidadeSolo != null) r.estado = r.umidadeSolo <= LIMITE_SECO ? 'seco' : r.umidadeSolo <= LIMITE_ATENCAO ? 'atencao' : 'ok';
+  return r;
+}
+
+async function processarLinhaSerial(linha) {
+  const o = lerLinhaSensor(linha); if (!o) return;
+  const anterior = serialAoVivo?.estado;
+  serialAoVivo = { data: new Date().toISOString(), ...o };
+  if (o.luzBruto != null) { serialAoVivo.lux = luxDoBruto(o.luzBruto); serialAoVivo.ppfd = ppfdDoLux(serialAoVivo.lux); acumularLuz(serialAoVivo.lux); }
+  if (o.sensor && cfg.sensor.ultimoIdSerial !== o.sensor) { cfg.sensor.ultimoIdSerial = o.sensor; salvarCfg(); }
+  atualizarAoVivoDom();
+  if (serialAoVivo.estado === 'seco' && anterior && anterior !== 'seco') toast('🔴 O sensor indica solo seco — hora de regar!', 5000);
+  const intervalo = Number(cfg.sensor.serialGravar || 5) * 60e3;
+  if (Date.now() - serialUltimaGravacao >= intervalo || (anterior && anterior !== serialAoVivo.estado)) {
+    serialUltimaGravacao = Date.now();
+    const porId = o.sensor ? state.plantios.find((p) => p.sensorId && p.sensorId === o.sensor && (p.status || 'ativo') === 'ativo') : null;
+    state.leituras.push({ id: uid(), data: serialAoVivo.data, plantioId: porId?.id || cfg.sensor.plantioId || '', umidadeSolo: serialAoVivo.umidadeSolo, ph: serialAoVivo.ph, temp: serialAoVivo.temp, umidadeAr: serialAoVivo.umidadeAr, luz: serialAoVivo.luz, lux: serialAoVivo.lux ?? null, estado: serialAoVivo.estado, origem: 'arduino-usb' });
+    if (state.leituras.length > 3000) state.leituras = state.leituras.slice(-3000);
+    await salvar();
+  }
+}
+if ('serial' in navigator) navigator.serial.addEventListener('disconnect', (e) => { if (serialPorta && e.target === serialPorta) { toast('🔌 Cabo do Arduino desconectado'); desconectarSerial(true); } });
+
 function exportarDados() { return { app: 'minha-horta', versao: VERSAO, exportadoEm: new Date().toISOString(), state }; }
 async function importarDados(obj) {
   const s = obj && obj.state; if (!s || !Array.isArray(s.plantios)) throw new Error('Arquivo não reconhecido');
-  state = Object.assign(estadoPadrao(), s); await salvar();
+  state = Object.assign(estadoPadrao(), s); state.apagados ||= {};
+  fotoIds = null;   // restauração: não conta como "apagar" o que havia antes
+  await salvar();
 }
+
+/* =================== SINCRONIZAÇÃO ENTRE APARELHOS ===================
+   Junta os dados deste aparelho com os da nuvem (nada é perdido):
+   - itens que só existem de um lado entram nos dois;
+   - o mesmo plantio editado nos dois: fica a versão mais recente, e os
+     registros do diário (rega, germinou, foto…) dos dois lados são somados;
+   - o que foi apagado em um aparelho é apagado no outro.                */
+function mesclarEstados(a, b) {
+  const ap = { ...(b.apagados || {}) };
+  for (const [k, t] of Object.entries(a.apagados || {})) ap[k] = Math.max(ap[k] || 0, t);
+  const limite = Date.now() - 180 * 864e5; for (const k in ap) if (ap[k] < limite) delete ap[k];
+  const vivo = (pref, id) => !ap[pref + id];
+  const maisNovo = (x, y) => ((x.mod || 0) >= (y.mod || 0) ? x : y);
+  const unir = (la, lb, pref, combinar) => {
+    const m = new Map();
+    for (const x of lb || []) m.set(x.id, x);
+    for (const x of la || []) { const y = m.get(x.id); m.set(x.id, y ? combinar(x, y) : x); }
+    return [...m.values()].filter((x) => vivo(pref, x.id));
+  };
+  const plantios = unir(a.plantios, b.plantios, 'p:', (x, y) => ({ ...maisNovo(x, y), eventos: unir(x.eventos, y.eventos, 'e:', maisNovo) }))
+    .map((p) => ({ ...p, eventos: (p.eventos || []).filter((e) => vivo('e:', e.id)) }));
+  const leituras = unir(a.leituras, b.leituras, 'l:', maisNovo).sort((x, y) => new Date(x.data) - new Date(y.data)).slice(-3000);
+  const culturasCustom = unir(a.culturasCustom, b.culturasCustom, 'c:', maisNovo);
+  return { ...estadoPadrao(), ...a, plantios, leituras, culturasCustom, wiki: { ...(b.wiki || {}), ...(a.wiki || {}) }, clima: a.clima || b.clima || null, apagados: ap };
+}
+const assinaturaDados = (st) => JSON.stringify([st.plantios, st.leituras, st.culturasCustom, st.apagados]);
+async function acharGist(H) {
+  const r = await fetch('https://api.github.com/gists?per_page=100', { headers: H, cache: 'no-store' });
+  if (!r.ok) throw new Error('GitHub respondeu ' + r.status + (r.status === 401 ? ' (token inválido)' : ''));
+  const l = await r.json();
+  const cands = (Array.isArray(l) ? l : []).filter((g) => g.files && g.files[GIST_ARQ]).sort((x, y) => new Date(y.updated_at) - new Date(x.updated_at));
+  return cands[0]?.id || '';
+}
+async function lerGist(id, H) {
+  const r = await fetch(`https://api.github.com/gists/${id}`, { headers: H, cache: 'no-store' });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error('GitHub respondeu ' + r.status + (r.status === 401 ? ' (token inválido)' : ''));
+  const j = await r.json(); const f = j.files && j.files[GIST_ARQ]; if (!f) return null;
+  const txt = f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
+  const o = JSON.parse(txt); return o && o.state ? o.state : null;
+}
+let sincronizando = false;
+const ROTAS_SEGURAS = /^#?\/?(p\/[^/]+|plantios|dados|backup|sensores|mais)?$/;
+async function gistSincronizar(silencioso) {
+  const { token } = cfg.gist; if (!token) throw new Error('Configure o token do GitHub');
+  if (sincronizando) return; sincronizando = true;
+  try {
+    const H = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' };
+    let id = cfg.gist.id || await acharGist(H);
+    let remoto = id ? await lerGist(id, H) : null;
+    if (id && !remoto && cfg.gist.id) { id = await acharGist(H); remoto = id ? await lerGist(id, H) : null; }
+    cfg.gist.id = id || '';
+    const antes = assinaturaDados(state);
+    if (remoto) state = mesclarEstados(state, remoto);
+    const mudouAqui = assinaturaDados(state) !== antes;
+    if (mudouAqui) { await gravarLocal(); fotoIds = indexarIds(state); }
+    const precisaSubir = !remoto || assinaturaDados(state) !== assinaturaDados(Object.assign(estadoPadrao(), remoto)) || cfg.gist.pendente;
+    if (precisaSubir) await gistBackup(true); else { cfg.gist.pendente = false; }
+    cfg.gist.ultimoSync = Date.now(); salvarCfg();
+    if (mudouAqui) {
+      if (ROTAS_SEGURAS.test(location.hash)) render(); else toast('🔄 Chegaram dados de outro aparelho');
+    } else if (!silencioso) render();
+    if (!silencioso) toast(mudouAqui ? '🔄 Sincronizado — dados de outro aparelho chegaram ✓' : '🔄 Sincronizado ✓');
+  } finally { sincronizando = false; }
+}
+function syncSePreciso(minSeg = 30) {
+  if (!cfg.gist.token || !cfg.gist.auto || !navigator.onLine || document.visibilityState === 'hidden') return;
+  if (Date.now() - (cfg.gist.ultimoSync || 0) < minSeg * 1000) return;
+  gistSincronizar(true).catch(() => {});
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncSePreciso(15); });
+setInterval(() => syncSePreciso(55), 60e3);
 const GIST_ARQ = 'minha-horta-backup.json';
 async function gistBackup(silencioso) {
   const { token, id } = cfg.gist; if (!token) throw new Error('Configure o token do GitHub');
   const body = { description: 'Backup Minha Horta', public: false, files: { [GIST_ARQ]: { content: JSON.stringify(exportarDados()) } } };
   const r = await fetch(id ? `https://api.github.com/gists/${id}` : 'https://api.github.com/gists', { method: id ? 'PATCH' : 'POST', headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' }, body: JSON.stringify(body) });
+  if (r.status === 404 && id) { cfg.gist.id = ''; return gistBackup(silencioso); }
   if (!r.ok) throw new Error('GitHub respondeu ' + r.status + (r.status === 401 ? ' (token inválido)' : ''));
   const j = await r.json(); cfg.gist.id = j.id; cfg.gist.ultimo = Date.now(); cfg.gist.pendente = false; salvarCfg();
   if (!silencioso) toast('☁️ Backup feito na nuvem ✓');
@@ -930,7 +1251,7 @@ async function gistRestaurar() {
   const { token } = cfg.gist; if (!token) throw new Error('Configure o token do GitHub');
   const H = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' };
   let id = cfg.gist.id;
-  if (!id) { const r = await fetch('https://api.github.com/gists?per_page=100', { headers: H }); const l = await r.json(); id = (l.find?.((g) => g.files && g.files[GIST_ARQ]) || {}).id; }
+  if (!id) id = await acharGist(H);
   if (!id) throw new Error('Nenhum backup encontrado nessa conta');
   const r = await fetch(`https://api.github.com/gists/${id}`, { headers: H }); if (!r.ok) throw new Error('GitHub respondeu ' + r.status);
   const j = await r.json(); const f = j.files[GIST_ARQ]; if (!f) throw new Error('Arquivo de backup não encontrado');
@@ -943,12 +1264,15 @@ function viewBackup() {
   <p class="muted small">Seus dados ficam salvos neste aparelho e funcionam sem internet (${(tam / 1024).toFixed(0)} KB hoje). Faça backup para não perder nada se trocar de celular.</p>
   <section class="card"><h3>Arquivo</h3><p class="small muted">Salve uma cópia no celular/Drive e restaure quando quiser.</p>
     <div class="row wrap"><button class="btn" data-act="export-json">⬇️ Baixar backup</button><label class="btn">⬆️ Restaurar arquivo<input type="file" id="impFile" accept="application/json,.json" hidden></label></div></section>
-  <section class="card"><h3>Nuvem automática (GitHub)</h3>
-    <p class="small muted">Usa um "Gist" secreto na sua conta do GitHub (a mesma onde o app vai ficar hospedado). Com internet, o backup é feito sozinho alguns segundos depois de cada mudança.</p>
+  <section class="card"><h3>Nuvem e sincronização (GitHub)</h3>
+    <p class="small muted">Usa um "Gist" secreto na sua conta do GitHub. <b>Para ver os mesmos dados no celular e no computador, cole o mesmo token nos dois aparelhos.</b> Com internet, eles se sincronizam sozinhos: alguns segundos depois de cada mudança, ao abrir o app e a cada minuto com ele aberto. Nada se perde: o que foi feito em cada aparelho é somado.</p>
     <label class="field"><span>Token do GitHub (permissão "gist")</span><input type="password" id="gTok" value="${h(cfg.gist.token)}" placeholder="ghp_… ou github_pat_…"></label>
-    <label class="row small" style="margin-top:10px"><input type="checkbox" id="gAuto" ${cfg.gist.auto ? 'checked' : ''}> Backup automático</label>
-    <p class="small muted">${cfg.gist.ultimo ? 'Último backup: ' + fmtData(new Date(cfg.gist.ultimo).toISOString()) : 'Nenhum backup na nuvem ainda.'}${cfg.gist.pendente ? ' · há mudanças esperando internet' : ''}</p>
-    <div class="row wrap"><button class="btn" data-act="gist-salvar">Salvar token</button><button class="btn soft" data-act="gist-backup">☁️ Fazer backup agora</button><button class="btn" data-act="gist-restaurar">Restaurar da nuvem</button></div>
+    <label class="row small" style="margin-top:10px"><input type="checkbox" id="gAuto" ${cfg.gist.auto ? 'checked' : ''}> Sincronizar automaticamente</label>
+    <p class="small muted">${cfg.gist.ultimoSync ? '🔄 Última sincronização: ' + fmtData(new Date(cfg.gist.ultimoSync).toISOString()) : cfg.gist.ultimo ? 'Último backup: ' + fmtData(new Date(cfg.gist.ultimo).toISOString()) : 'Ainda não sincronizado.'}${cfg.gist.pendente ? ' · há mudanças esperando internet' : ''}${cfg.gist.id ? `<br>Cofre na nuvem: <code>${h(cfg.gist.id.slice(0, 8))}…</code> (deve ser igual nos dois aparelhos)` : ''}</p>
+    <div class="row wrap"><button class="btn primary" data-act="gist-sync">🔄 Sincronizar agora</button><button class="btn" data-act="gist-salvar">Salvar token</button></div>
+    <details style="margin-top:10px"><summary class="small"><b>Opções avançadas</b></summary>
+      <div class="row wrap" style="margin-top:8px"><button class="btn soft" data-act="gist-backup">☁️ Só enviar (backup)</button><button class="btn" data-act="gist-restaurar">Substituir tudo pelo que está na nuvem</button></div>
+      <p class="small muted">"Substituir" apaga o que existe só neste aparelho. Prefira sempre "Sincronizar".</p></details>
     <details style="margin-top:10px"><summary class="small"><b>Como criar o token</b></summary><ol class="small"><li>No GitHub: foto do perfil › <b>Settings</b> › <b>Developer settings</b> › <b>Personal access tokens</b> › <b>Tokens (classic)</b> › <b>Generate new token (classic)</b>.</li><li>Nome: "Minha Horta". Validade: o que preferir. Marque só a caixa <b>gist</b>.</li><li>Gere, copie e cole aqui. O token fica guardado só neste aparelho.</li></ol></details>
   </section>`;
 }
@@ -1034,6 +1358,9 @@ function render() {
   $$('.tabbar a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
   // campos que salvam sozinhos
   const nomeU = $('#nomeUser'); if (nomeU) nomeU.onchange = () => { cfg.nome = nomeU.value.trim(); salvarCfg(); toast('Salvo ✓'); };
+  const lt = $('#luzTipo'); if (lt) lt.onchange = () => { cfg.luz.tipo = lt.value; salvarCfg(); toast('Tipo de luz salvo ✓'); };
+  const lp = $('#luzPid'); if (lp) lp.onchange = () => { cfg.sensor.plantioId = lp.value; salvarCfg(); toast('Plantio do sensor salvo ✓'); };
+  const sg = $('#serialGravar'); if (sg) sg.onchange = () => { cfg.sensor.serialGravar = Number(sg.value); salvarCfg(); serialUltimaGravacao = 0; toast('Intervalo salvo ✓'); };
   const imp = $('#impFile'); if (imp) imp.onchange = async () => {
     const f = imp.files[0]; if (!f) return;
     try { const obj = JSON.parse(await f.text()); if (!confirm(`Restaurar backup com ${obj.state?.plantios?.length ?? 0} plantios? Os dados atuais serão substituídos.`)) return; await importarDados(obj); toast('Backup restaurado ✓'); location.hash = '#/'; render(); }
@@ -1066,10 +1393,22 @@ const ACOES = {
   'csv-eventos': () => baixar('diario.csv', csv([['plantio', 'tipo', 'data', 'dia_do_plantio', 'valor', 'nota'], ...state.plantios.flatMap((p) => (p.eventos || []).map((e) => [nomePlantio(p), window.EVENTOS[e.tipo]?.nome, e.data, diasDesde(p.data, new Date(e.data)), e.valor, e.nota]))]), 'text/csv'),
   'csv-leituras': () => baixar('leituras.csv', csv([['data', 'plantio', 'umidade_solo', 'ph', 'temperatura', 'umidade_ar', 'luz', 'origem'], ...state.leituras.map((l) => [l.data, l.plantioId ? nomePlantio(state.plantios.find((p) => p.id === l.plantioId) || {}) : 'ambiente', l.umidadeSolo, l.ph, l.temp, l.umidadeAr, l.luz, l.origem])]), 'text/csv'),
   'export-json': () => baixar(`minha-horta-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(exportarDados(), null, 1)),
+  'serial-conectar': () => conectarSerial(),
+  'luz-calibrar': () => {
+    const ref = Number($('#luxRef')?.value); const b = serialAoVivo?.luzBruto;
+    if (!(ref > 0)) return toast('Digite o valor de lux do celular');
+    if (b == null || b <= 0 || b >= 1023) return toast('⚠ Conecte o Arduino e deixe o LDR numa luz que não seja escuro total nem saturada');
+    const R = cfg.luz.rFixo * (1023 / b - 1);
+    cfg.luz.r10 = Math.round(R * Math.pow(ref / 10, cfg.luz.gama)); salvarCfg();
+    toast(`Calibrado ✓ agora ${luxDoBruto(b).toLocaleString('pt-BR')} lux`); render();
+  },
+  'luz-reset': () => { cfg.luz = { ...cfgPadrao().luz, tipo: cfg.luz.tipo }; salvarCfg(); toast('Fórmula padrão ✓'); render(); },
+  'serial-desconectar': () => desconectarSerial(),
   'sensor-salvar': () => { cfg.sensor.url = $('#sUrl').value.trim(); cfg.sensor.intervalo = Number($('#sInt').value); cfg.sensor.plantioId = $('#sPid').value; salvarCfg(); agendarSensor(); toast('Sensores salvos ✓'); },
   'sensor-ler': async () => { ACOES['sensor-salvar'](); try { await lerSensor(); } catch (e) { toast('⚠ ' + e.message); } },
-  'gist-salvar': () => { cfg.gist.token = $('#gTok').value.trim(); cfg.gist.auto = $('#gAuto').checked; salvarCfg(); toast('Salvo ✓'); },
+  'gist-salvar': () => { const novo = $('#gTok').value.trim(); if (novo !== cfg.gist.token) cfg.gist.id = ''; cfg.gist.token = novo; cfg.gist.auto = $('#gAuto').checked; salvarCfg(); toast('Salvo ✓'); },
   'gist-backup': async () => { ACOES['gist-salvar'](); try { await gistBackup(); render(); } catch (e) { toast('⚠ ' + e.message); } },
+  'gist-sync': async (d, b) => { ACOES['gist-salvar'](); if (b) { b.disabled = true; b.textContent = '🔄 Sincronizando…'; } try { cfg.gist.ultimoSync = 0; await gistSincronizar(false); } catch (e) { toast('⚠ ' + e.message); } render(); },
   'gist-restaurar': async () => { ACOES['gist-salvar'](); if (!confirm('Substituir os dados deste aparelho pelo backup da nuvem?')) return; try { await gistRestaurar(); toast('Restaurado da nuvem ✓'); location.hash = '#/'; render(); } catch (e) { toast('⚠ ' + e.message); } },
   'ia-salvar': () => { cfg.ia = { provedor: $('#iaProv').value, chave: $('#iaKey').value.trim(), modelo: $('#iaModel').value.trim(), baseUrl: $('#iaBase').value.trim() }; salvarCfg(); toast('IA salva ✓'); render(); },
   'ia-testar': async () => {
@@ -1100,7 +1439,7 @@ window.addEventListener('hashchange', () => { window.scrollTo(0, 0); viewAssiste
 window.addEventListener('online', async () => {
   atualizarRede(); toast('🟢 Conectado — sincronizando');
   try { await atualizarClima(); } catch {}
-  if (cfg.gist.pendente && cfg.gist.token && cfg.gist.auto) gistBackup(true).catch(() => {});
+  if (cfg.gist.token && cfg.gist.auto) gistSincronizar(true).catch(() => {});
   render();
 });
 window.addEventListener('offline', () => { atualizarRede(); toast('🟠 Sem internet — tudo continua salvando no aparelho'); });
@@ -1111,6 +1450,6 @@ window.addEventListener('offline', () => { atualizarRede(); toast('🟠 Sem inte
   render();
   agendarSensor();
   if (cfg.local) atualizarClima().then(() => { if (!location.hash || location.hash === '#/' || location.hash.startsWith('#/clima')) render(); }).catch(() => {});
-  if (navigator.onLine && cfg.gist.pendente && cfg.gist.token && cfg.gist.auto) gistBackup(true).catch(() => {});
+  if (navigator.onLine && cfg.gist.token && cfg.gist.auto) gistSincronizar(true).catch(() => {});
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

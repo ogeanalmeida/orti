@@ -1,6 +1,6 @@
 /* Service worker: guarda o app no aparelho para abrir sem internet.
    Ao publicar uma versão nova, aumente o número em CACHE. */
-const CACHE = 'minha-horta-v1';
+const CACHE = 'minha-horta-v5';
 const ARQUIVOS = ['./', './index.html', './styles.css', './app.js', './catalog.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
