@@ -3,7 +3,68 @@
    e podem ir para a nuvem (GitHub Gist) quando houver internet. */
 'use strict';
 
-const VERSAO = '1.5.0';
+const VERSAO = '1.6.0';
+
+/* =================== ÍCONES (exportados do Figma) =================== */
+const ic = (n, cls = '') => (window.ICONES && ICONES[n]) ? `<svg class="i ${cls}" viewBox="0 0 24 24" fill="none" aria-hidden="true">${ICONES[n]}</svg>` : '';
+const CULT_ICONE = { alface: 'Alface', rucula: 'Rúcula', coentro: 'Coentro', cebolinha: 'Cebolinha', salsinha: 'Salsinha', manjericao: 'Manjericão', hortela: 'Hortelã', couve: 'Couve', espinafre: 'Espinafre', rabanete: 'Rabanete', cenoura: 'Cenoura', beterraba: 'Beterraba', 'tomate-cereja': 'Tomate-cereja', pimenta: 'Pimenta', pimentao: 'Pimentão', pepino: 'Pepino', morango: 'Morango', microverdes: 'Microverdes', maracuja: 'Maracujá', melancia: 'Melancia', mamao: 'Mamão' };
+const icc = (c) => CULT_ICONE[c?.id] ? ic('Hortaliça/' + CULT_ICONE[c.id]) : ic('Folha');
+/* Emojis do texto → ícones do design system (aplicado em toda tela) */
+const EMOJI_ICONE = {
+  '💧': 'Gota', '🌱': 'Plantios', '🌰': 'Semente', '🧺': 'Colheita', '⚠️': 'Alerta', '⚠': 'Alerta', '🌡️': 'Temperatura', '🌡': 'Temperatura',
+  '☀️': 'Sol', '☀': 'Sol', '🌧️': 'Chuva', '⛈️': 'Chuva', '🌦️': 'Sol e chuva', '⛅': 'Parcialmente nublado', '🌤️': 'Parcialmente nublado', '☁️': 'Nuvem', '☁': 'Nuvem', '🌫️': 'Nuvem', '❄️': 'Nuvem',
+  '🧪': 'Folha', '🪴': 'Vaso', '✂️': 'Tesoura', '🐛': 'Alerta', '📷': 'Câmera', '📝': 'Documento', '🥀': 'Alerta', '🍃': 'Folha', '🌿': 'Folha', '🌼': 'Folha', '🥬': 'Folha', '🌾': 'Folha',
+  '🔌': 'Plug', '📟': 'Sensor', '🤖': 'Robô', '🎨': 'Paleta', '📲': 'Celular', '📱': 'Celular', '⬇️': 'Download', '⬆️': 'Upload', '🔄': 'Sincronizar', '📄': 'Documento', '🗂️': 'Pasta',
+  '📍': 'Localização', '⚡': 'Raio', '🔬': 'Microscópio', '🏆': 'Troféu', '✅': 'Check', '💡': 'Lâmpada', '📡': 'Wi-Fi', '📆': 'Calendário', '📅': 'Calendário', '🕶️': 'Sol',
+  '🔥': 'Temperatura', '⏰': 'Relógio', '🔔': 'Notificação', '📊': 'Dados', '🟢': 'Status', '⚪': 'Status', '🔴': 'Alerta', '🍎': 'Celular', '📶': 'Wi-Fi', '➕': 'Adicionar', '👋': null
+};
+const EMOJI_RE = new RegExp('(' + Object.keys(EMOJI_ICONE).filter((k) => EMOJI_ICONE[k]).sort((a, b) => b.length - a.length).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\uFE0F?', 'g');
+function iconizar(root) {
+  if (!root || !window.ICONES) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => {
+    const p = n.parentElement; if (!p || p.closest('svg, textarea, option, select, script, style, .msg, input, [data-sem-icone]')) return NodeFilter.FILTER_REJECT;
+    EMOJI_RE.lastIndex = 0; return EMOJI_RE.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } });
+  const nos = []; while (w.nextNode()) nos.push(w.currentNode);
+  for (const n of nos) {
+    const tmp = document.createElement('span');
+    tmp.innerHTML = h(n.nodeValue).replace(EMOJI_RE, (m, e) => ic(EMOJI_ICONE[e]) || m);
+    n.replaceWith(...tmp.childNodes);
+  }
+  root.querySelectorAll('[data-ic]').forEach((el) => { if (!el.firstChild) el.innerHTML = ic(el.dataset.ic); });
+}
+
+/* =================== ANIMAÇÕES =================== */
+const semMovimento = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function animarEntrada(view) {
+  view.classList.remove('anima'); void view.offsetWidth; view.classList.add('anima');
+  const alvos = [...view.querySelectorAll(':scope > *, .card, .tile, .nivel, .action, .pick, .days > div, .menu a, .msg, .fact, .tl-full li, .summary-line, .tema-op')].slice(0, 70);
+  alvos.forEach((el, i) => { el.classList.remove('ent'); el.style.animationDelay = Math.min(i * 35, 650) + 'ms'; el.classList.add('ent'); });
+  setTimeout(() => alvos.forEach((el) => { el.classList.remove('ent'); el.style.animationDelay = ''; }), 1600);
+}
+function contarNumeros(view) {
+  view.querySelectorAll('.tile b, [data-conta]').forEach((el) => {
+    const txt = el.textContent.trim(); const m = txt.match(/^(-?\d+(?:[.,]\d+)?)(.*)$/); if (!m) return;
+    const alvo = Number(m[1].replace(',', '.')), dec = (m[1].split(/[.,]/)[1] || '').length, suf = m[2];
+    if (semMovimento() || !isFinite(alvo)) return;
+    const t0 = performance.now(), dur = 900;
+    const passo = (t) => { const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3); el.textContent = (alvo * e).toFixed(dec).replace('.', m[1].includes(',') ? ',' : '.') + suf; if (p < 1) requestAnimationFrame(passo); };
+    el.textContent = (0).toFixed(dec) + suf; requestAnimationFrame(passo);
+  });
+}
+/* odômetro: cada dígito sobe como um contador de relógio */
+function odometros(view) {
+  view.querySelectorAll('[data-odometro]').forEach((el) => {
+    const alvo = el.dataset.odometro; el.textContent = ''; el.classList.add('odo');
+    const cols = [];
+    for (const ch of alvo) {
+      if (/\d/.test(ch)) { const c = document.createElement('span'); c.className = 'col'; c.innerHTML = Array.from({ length: 20 }, (_, i) => `<span>${i % 10}</span>`).join(''); el.appendChild(c); cols.push([c, 10 + Number(ch)]); }
+      else { const f = document.createElement('span'); f.className = 'fix'; f.textContent = ch; el.appendChild(f); }
+    }
+    if (semMovimento()) { cols.forEach(([c, n]) => c.style.transform = `translateY(-${n * 1.1}em)`); return; }
+    requestAnimationFrame(() => requestAnimationFrame(() => cols.forEach(([c, n], i) => { c.style.transitionDelay = (i * 120) + 'ms'; c.style.transform = `translateY(-${n * 1.1}em)`; })));
+  });
+}
+
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -52,6 +113,7 @@ const cfgPadrao = () => ({
   gist: { token: '', id: '', auto: true, ultimo: null, pendente: false },
   sensor: { url: '', intervalo: 0, plantioId: '' },
   luz: { tipo: 'sol', r10: 15000, gama: 0.7, rFixo: 10000 },
+  temaBase: 'clean', temaVersao: 2,
   tema: {}
 });
 let cfg = cfgPadrao();
@@ -296,7 +358,7 @@ function comprimirFoto(file, max = 900, q = 0.72) {
 
 /* =================== UI BÁSICA =================== */
 function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), ms); }
-function abrirModal(html, mount) { const m = $('#modal'); m.innerHTML = `<div class="sheet">${html}</div>`; m.hidden = false; mount && mount(m); }
+function abrirModal(html, mount) { const m = $('#modal'); m.innerHTML = `<div class="sheet">${html}</div>`; m.hidden = false; mount && mount(m); iconizar(m); }
 function fecharModal() { const m = $('#modal'); m.hidden = true; m.innerHTML = ''; }
 $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') fecharModal(); });
 function atualizarRede() { const n = $('#net'); const on = navigator.onLine; n.textContent = on ? 'online' : 'offline'; n.classList.toggle('off', !on); }
@@ -304,8 +366,10 @@ function baixar(nome, conteudo, tipo = 'application/json') { const b = new Blob(
 
 function aplicarTema() {
   const root = document.documentElement;
+  if (cfg.temaVersao !== 2) { cfg.tema = {}; cfg.temaVersao = 2; salvarCfg(); }   // cores antigas (v1.5) saem para valer o tema do Figma
+  root.dataset.tema = cfg.temaBase || 'clean';
   for (const [k, v] of Object.entries(cfg.tema || {})) if (v) root.style.setProperty('--' + k, v);
-  const meta = $('meta[name=theme-color]'); if (meta) meta.content = getComputedStyle(root).getPropertyValue('--primary').trim() || '#2f8f4e';
+  const meta = $('meta[name=theme-color]'); if (meta) meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#f2f6fc';
 }
 
 /* =================== VIEWS =================== */
@@ -386,7 +450,7 @@ function htmlLinhaCompleta(p, a) {
 function cardPlantio(p) {
   const a = analisar(p); const c = a.c;
   return `<a class="card plant" href="#/p/${p.id}">
-    <div class="emoji">${p.foto ? `<img src="${p.foto}" alt="">` : c.e}</div>
+    <div class="emoji">${p.foto ? `<img src="${p.foto}" alt="">` : icc(c)}</div>
     <div class="info">
       <b>${h(nomePlantio(p))}</b>
       <div class="row wrap small"><span class="chip ${a.chip}">${h(a.fase)}</span><span class="muted">Dia ${a.dia} · ${h(p.local || 'sem local')}</span></div>
@@ -407,30 +471,34 @@ function viewInicio() {
 
   let resumo;
   if (!ativos.length) resumo = 'Cadastre seu primeiro plantio para eu começar a acompanhar.';
-  else if (!urgentes.length) resumo = 'Tudo em dia por hoje. 🌿';
+  else if (!urgentes.length) resumo = 'Tudo em dia por hoje.';
   else resumo = [regas ? plural(regas, 'rega') : '', urgentes.length - regas > 0 ? plural(urgentes.length - regas, 'coisa', 'coisas') + ' para conferir' : ''].filter(Boolean).join(' e ') + ' hoje.';
 
+  const alertaSeco = serialAoVivo && serialAoVivo.estado === 'seco' ? `<div class="alerta bad">${ic('Alerta')}<div><b>Solo seco agora</b><small>O sensor marca ${serialAoVivo.umidadeSolo}% de umidade. Regue hoje.</small></div></div>` : '';
+  const clima = cl && cl.atual ? `${Math.round(cl.atual.temp)}° · ${h(cfg.local?.nome?.split(/[,-]/)[0] || '')} · ${cl.dias[0].chuva >= 50 ? 'chuva ' + cl.dias[0].chuva + '%' : 'sem chuva hoje'}` : '';
   return `
-  <section class="card hero">
-    <p class="muted small" style="margin:0">${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-    <h1>${saudacao()}${cfg.nome ? ', ' + h(cfg.nome) : ''}!</h1>
-    <p style="margin:6px 0 0">${h(resumo)}</p>
-    <div style="margin-top:8px">${chipSerialHome()}</div>
-    ${cl && cl.atual ? `<p class="muted small" style="margin:8px 0 0">${WMO(cl.atual.code)[0]} ${Math.round(cl.atual.temp)}°C agora em ${h(cfg.local?.nome || '')} · máx ${Math.round(cl.dias[0].max)}° · chuva ${cl.dias[0].chuva}%</p>` : `<p class="small" style="margin:8px 0 0"><a href="#/clima" style="color:#fff">☀️ Definir minha cidade para ver o clima</a></p>`}
-  </section>
+  ${alertaSeco}
+  <div class="home-top">
+    <section class="card hero">
+      <h1>${saudacao()}${cfg.nome ? ', ' + h(cfg.nome) : ''}</h1>
+      <p class="muted small" style="margin:6px 0 0">${h(resumo)}</p>
+      ${clima ? `<a class="hero-chip" href="#/clima" style="color:inherit;text-decoration:none">${clima}</a>` : `<a class="hero-chip" href="#/clima" style="color:inherit;text-decoration:none">☀️ Definir minha cidade</a>`}
+      <div style="margin-top:8px">${chipSerialHome()}</div>
+    </section>
+    <section class="tiles" style="margin-top:12px">
+      <div class="tile"><b>${ativos.length}</b><span>plantios ativos</span></div>
+      <div class="tile"><b>${urgentes.length}</b><span>tarefas hoje</span></div>
+      <div class="tile"><b>${prox ? prox.alvoFalta + 'd' : (comGerm.length ? Math.round((germOk / comGerm.length) * 100) + '%' : '—')}</b><span>${prox ? 'p/ ' + h(prox.c.alvoLabel.split(' ')[0]) + ' (' + h(prox.c.nome.split(' ')[0]) + ')' : 'germinação'}</span></div>
+    </section>
+  </div>
 
-  <section class="tiles" style="margin-top:12px">
-    <div class="tile"><b>${ativos.length}</b><span>plantios ativos</span></div>
-    <div class="tile"><b>${comGerm.length ? Math.round((germOk / comGerm.length) * 100) + '%' : '—'}</b><span>germinação</span></div>
-    <div class="tile"><b>${prox ? prox.alvoFalta + 'd' : '—'}</b><span>${prox ? 'p/ ' + h(prox.c.alvoLabel.split(' ')[0]) + ' (' + h(prox.c.nome.split(' ')[0]) + ')' : 'próxima meta'}</span></div>
-  </section>
-
-  ${todasAcoes.length ? `<section class="section"><h2>O que fazer hoje</h2><div class="card">${todasAcoes.slice(0, 8).map(cardAcao).join('')}</div></section>` : ''}
-
-  <section class="section">
-    <div class="row between" style="margin-bottom:10px"><h2>Seus plantios</h2><a href="#/plantios" class="small">ver todos</a></div>
-    ${ativos.length ? ativos.slice(0, 6).map(cardPlantio).join('') : `<div class="card empty"><span class="e">🪴</span>Nenhum plantio ainda.<br><br><a class="btn primary" href="#/novo">Cadastrar primeiro plantio</a></div>`}
-  </section>`;
+  <div class="home-cols">
+    <section class="section"><h2 style="margin-bottom:10px">O que fazer hoje</h2>${todasAcoes.length ? `<div class="card">${todasAcoes.slice(0, 8).map(cardAcao).join('')}</div>` : `<div class="card empty"><span class="e">${ic('Sucesso')}</span>Tudo em dia por hoje.</div>`}</section>
+    <section class="section">
+      <div class="row between" style="margin-bottom:10px"><h2>Seus plantios</h2><a href="#/plantios" class="small">ver todos</a></div>
+      ${ativos.length ? `<div class="plant-grid">${ativos.slice(0, 6).map(cardPlantio).join('')}</div>` : `<div class="card empty"><span class="e">${ic('Vaso')}</span>Nenhum plantio ainda.<br><br><a class="btn primary" href="#/novo">Cadastrar primeiro plantio</a></div>`}
+    </section>
+  </div>`;
 }
 
 let filtroPlantios = 'ativo';
@@ -440,12 +508,12 @@ function viewPlantios() {
     .sort((a, b) => new Date(b.data) - new Date(a.data));
   return {
     html: `
-    <div class="row between"><h1>Plantios</h1><a class="btn primary sm" href="#/novo">+ Novo</a></div>
+    <div class="row between"><h1>Plantios</h1><a class="btn primary sm" href="#/novo">${ic('Plantios')} Novo</a></div>
     <div class="seg" style="margin:14px 0">
       ${[['ativo', 'Ativos'], ['fim', 'Finalizados'], ['todos', 'Todos']].map(([k, l]) => `<button data-act="filtro" data-f="${k}" class="${filtroPlantios === k ? 'on' : ''}">${l}</button>`).join('')}
     </div>
     <input type="search" id="busca" placeholder="Buscar por nome, local, variedade…">
-    <div id="lista" style="margin-top:12px">${lista.length ? lista.map(cardPlantio).join('') : `<div class="empty"><span class="e">🌾</span>Nada por aqui.</div>`}</div>`,
+    <div id="lista" class="plant-grid" style="margin-top:12px">${lista.length ? lista.map(cardPlantio).join('') : `<div class="empty"><span class="e">${ic('Folha')}</span>Nada por aqui.</div>`}</div>`,
     mount() {
       $('#busca').addEventListener('input', (e) => {
         const q = norm(e.target.value);
@@ -466,7 +534,7 @@ function viewForm(id) {
     <form id="fPlantio" class="card" autocomplete="off">
       <span class="small muted" style="font-weight:600">1. O que você está plantando?</span>
       <div class="picker" style="margin-top:8px">
-        ${culturas.map((c) => `<button type="button" class="pick ${p.cultura === c.id ? 'sel' : ''}" data-cult="${c.id}"><span class="e">${c.e}</span>${h(c.nome)}</button>`).join('')}
+        ${culturas.map((c) => `<button type="button" class="pick ${p.cultura === c.id ? 'sel' : ''}" data-cult="${c.id}"><span class="e">${icc(c)}</span>${h(c.nome)}</button>`).join('')}
         <button type="button" class="pick ${p.cultura === 'outro' ? 'sel' : ''}" data-cult="outro"><span class="e">➕</span>Outra</button>
       </div>
       <input type="hidden" name="cultura" value="${h(p.cultura)}">
@@ -577,7 +645,7 @@ function viewDetalhe(id) {
       <div class="row"><a class="btn sm" href="#/editar/${p.id}">Editar</a></div></div>
     ${p.foto ? `<div class="photo-hero" style="margin-top:12px"><img src="${p.foto}" alt=""></div>` : ''}
     <section class="card" style="margin-top:12px">
-      <div class="row"><span style="font-size:2.2rem">${c.e}</span>
+      <div class="row"><span class="det-ico">${icc(c)}</span>
         <div class="grow"><h1>${h(nomePlantio(p))}</h1><div class="row wrap small"><span class="chip ${a.chip}">${h(a.fase)}</span><span class="muted">${h(p.metodo)} · ${h(p.local || 'sem local')}</span></div></div></div>
       ${a.ativo ? `<div style="margin-top:14px"><div class="row between small"><span>Dia <b>${a.dia}</b></span><span class="muted">${a.alvoFalta > 0 ? `faltam ~${a.alvoFalta} dias p/ ${h(c.alvoLabel)}` : h(c.alvoLabel) + ' 🎉'}</span></div><div class="progress"><i style="width:${a.progresso}%"></i></div></div>` : ''}
       ${a.acoes.length ? `<div style="margin-top:14px">${a.acoes.map(cardAcao).join('')}</div>` : ''}
@@ -731,9 +799,9 @@ function svgBarras(grupos) {
   const W = 320, L = 92, rowH = 34, H = linhas.length * rowH + 10; const esc = (v) => ((W - L - 30) * v) / max;
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Dias para germinar: real x referência">
     ${linhas.map((g, i) => { const y = i * rowH + 6; const m = media(g.germDias); return `
-      <text x="0" y="${y + 15}" font-size="11" fill="var(--text)">${h(g.c.e + ' ' + g.c.nome.split(' ')[0])}</text>
-      <rect x="${L + esc(g.c.germ[0])}" y="${y}" width="${Math.max(2, esc(g.c.germ[1] - g.c.germ[0]))}" height="22" rx="5" fill="var(--primary-soft)"/>
-      <rect x="${L}" y="${y + 7}" width="${Math.max(2, esc(m))}" height="8" rx="4" fill="var(--primary)"/>
+      <text x="0" y="${y + 15}" font-size="11" fill="var(--text)">${h(g.c.nome.split(' ')[0])}</text>
+      <rect x="${L + esc(g.c.germ[0])}" y="${y}" width="${Math.max(2, esc(g.c.germ[1] - g.c.germ[0]))}" height="22" rx="5" fill="var(--primary-soft)" class="bar-anim"/>
+      <rect x="${L}" y="${y + 7}" width="${Math.max(2, esc(m))}" height="8" rx="4" fill="var(--primary)" class="bar-anim"/>
       <text x="${L + esc(m) + 5}" y="${y + 15}" font-size="10.5" fill="var(--muted)">${m}d</text>`; }).join('')}
   </svg><div class="legend"><span><i style="background:var(--primary)"></i>real (média)</span><span><i style="background:var(--primary-soft)"></i>faixa de referência</span></div></div>`;
 }
@@ -746,7 +814,7 @@ function svgLinhas(leits, campos) {
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}">
     <line x1="${P}" y1="${H - P}" x2="${W - P}" y2="${H - P}" stroke="var(--line)"/>
     <text x="2" y="${P}" font-size="9" fill="var(--muted)">${Math.round(mx)}</text><text x="2" y="${H - P}" font-size="9" fill="var(--muted)">${Math.round(mn)}</text>
-    ${campos.map(([k, , cor]) => { const pts = leits.filter((l) => l[k] != null).map((l) => `${sx(new Date(l.data).getTime()).toFixed(1)},${sy(l[k]).toFixed(1)}`).join(' '); return pts ? `<polyline points="${pts}" fill="none" stroke="${cor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : ''; }).join('')}
+    ${campos.map(([k, , cor]) => { const pts = leits.filter((l) => l[k] != null).map((l) => `${sx(new Date(l.data).getTime()).toFixed(1)},${sy(l[k]).toFixed(1)}`).join(' '); return pts ? `<polyline points="${pts}" pathLength="1" class="linha-anim" fill="none" stroke="${cor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : ''; }).join('')}
   </svg><div class="legend">${campos.map(([, n, cor]) => `<span><i style="background:${cor}"></i>${n}</span>`).join('')}</div></div>`;
 }
 
@@ -772,7 +840,7 @@ function viewDados() {
       <section class="tiles"><div class="tile"><b>${total}</b><span>plantios</span></div><div class="tile"><b>${ativos}</b><span>ativos</span></div>
       <div class="tile"><b>${comGerm.length ? Math.round((germOk / comGerm.length) * 100) + '%' : '—'}</b><span>germinaram</span></div><div class="tile"><b>${colheitas}</b><span>colheitas</span></div></section>
       ${destaques.length ? `<section class="section"><h2>Em resumo</h2><div class="card">${destaques.map((d) => `<div class="summary-line">${d}</div>`).join('')}</div></section>` : ''}
-      <section class="section"><h2>Por cultura</h2><div class="card">${grupos.map((g) => `<div class="summary-line"><b>${g.c.e} ${h(g.c.nome)}</b> <span class="muted small">· ${plural(g.n, 'plantio')}</span><br><span class="small">${frasesCultura(g).map((f) => f.charAt(0).toUpperCase() + f.slice(1)).join('. ')}.</span></div>`).join('')}</div></section>
+      <section class="section"><h2>Por cultura</h2><div class="card">${grupos.map((g) => `<div class="summary-line"><b>${icc(g.c)} ${h(g.c.nome)}</b> <span class="muted small">· ${plural(g.n, 'plantio')}</span><br><span class="small">${frasesCultura(g).map((f) => f.charAt(0).toUpperCase() + f.slice(1)).join('. ')}.</span></div>`).join('')}</div></section>
       <a class="btn soft block" style="margin-top:14px" href="#/assistente?q=analise">🤖 Pedir uma análise completa ao assistente</a>`;
   }
 
@@ -783,7 +851,7 @@ function viewDados() {
     <section class="section"><h2>Todos os plantios</h2><div class="card table-wrap"><table>
       <thead><tr><th>Planta</th><th>Plantio</th><th>Método</th><th>Local</th><th>Dia</th><th>Germinou</th><th>Regas</th><th>Colheitas</th><th>Situação</th></tr></thead>
       <tbody>${[...state.plantios].sort((a, b) => new Date(b.data) - new Date(a.data)).map((p) => { const a = analisar(p); return `<tr onclick="location.hash='#/p/${p.id}'" style="cursor:pointer">
-        <td>${a.c.e} ${h(nomePlantio(p))}</td><td>${fmtData(p.data)}</td><td>${h(p.metodo)}</td><td>${h(p.local || '—')}</td><td>${a.dia}</td>
+        <td>${icc(a.c)} ${h(nomePlantio(p))}</td><td>${fmtData(p.data)}</td><td>${h(p.metodo)}</td><td>${h(p.local || '—')}</td><td>${a.dia}</td>
         <td>${a.germDia != null ? 'dia ' + a.germDia : a.precisaGerm ? '—' : 'muda'}</td><td>${ev(p, 'rega').length}</td><td>${ev(p, 'colheita').length}</td><td>${h(a.fase)}</td></tr>`; }).join('')}</tbody></table></div></section>
     <section class="section"><h2>Exportar</h2><div class="row wrap">
       <button class="btn" data-act="csv-plantios">📄 Plantios (CSV)</button><button class="btn" data-act="csv-eventos">📄 Diário (CSV)</button>
@@ -807,15 +875,15 @@ function viewClima() {
   return {
     html: `<h1>Clima</h1>
     <section class="card" style="margin-top:12px">
-      <div class="row between"><div><b>${loc ? h(loc.nome) : 'Nenhuma cidade definida'}</b>${cl ? `<div class="small muted">Atualizado ${fmtData(new Date(cl.ts).toISOString())}${navigator.onLine ? '' : ' (offline: últimos dados salvos)'}</div>` : ''}</div>
+      <div class="row between"><div><b>${loc ? h(loc.nome) : 'Nenhuma cidade definida'}</b>${cl ? `<div class="small muted">Atualizado <span data-odometro="${fmtData(new Date(cl.ts).toISOString())}">${fmtData(new Date(cl.ts).toISOString())}</span>${navigator.onLine ? '' : ' (offline: últimos dados salvos)'}</div>` : ''}</div>
       ${loc ? `<button class="btn sm" data-act="clima-atualizar">↻</button>` : ''}</div>
       <div class="row" style="margin-top:12px"><input type="search" id="cidade" placeholder="Buscar cidade…" class="grow"><button class="btn sm" id="btnCidade">Buscar</button></div>
       <button class="btn sm soft" style="margin-top:8px" id="btnGeo">📍 Usar minha localização</button>
       <div id="resCidade"></div>
     </section>
     ${cl && cl.atual ? `
-    <section class="card"><div class="wx-now"><span style="font-size:2.6rem">${WMO(cl.atual.code)[0]}</span><div><div class="big">${Math.round(cl.atual.temp)}°C</div><div class="muted small">${WMO(cl.atual.code)[1]} · umidade ${cl.atual.umid}%</div></div></div>
-      <div class="days" style="margin-top:14px">${cl.dias.map((d) => `<div><span>${new Date(d.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}</span><span style="font-size:1.2rem;display:block">${WMO(d.code)[0]}</span><b>${Math.round(d.max)}°</b><span class="muted">${Math.round(d.min)}°</span><span style="display:block;color:var(--info)">${d.chuva}%</span></div>`).join('')}</div>
+    <section class="card"><div class="wx-now"><span class="wx-ico">${ic(EMOJI_ICONE[WMO(cl.atual.code)[0]] || 'Sol')}</span><div><div class="big" data-odometro="${Math.round(cl.atual.temp)}°C">${Math.round(cl.atual.temp)}°C</div><div class="muted small">${WMO(cl.atual.code)[1]} · umidade ${cl.atual.umid}%</div></div></div>
+      <div class="days" style="margin-top:14px">${cl.dias.map((d) => `<div><span>${new Date(d.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}</span>${ic(EMOJI_ICONE[WMO(d.code)[0]] || 'Sol')}<b data-conta>${Math.round(d.max)}°</b><span class="muted">${Math.round(d.min)}°</span><span style="display:block;color:var(--info)">${d.chuva}%</span></div>`).join('')}</div>
       <p class="small muted" style="margin:10px 0 0">☀️ Sol: ${cl.dias[0].nascer?.slice(11)} às ${cl.dias[0].por?.slice(11)} · UV máx ${Math.round(cl.dias[0].uv)}</p></section>
     <section class="section"><h2>O que isso significa para a horta</h2><div class="card">${dicas.map(cardAcao).join('') || '<p class="small muted">Clima tranquilo hoje. 🌤️</p>'}</div>
     <p class="small muted">Lembrete: o clima é de fora de casa. Os sensores de ambiente vão mostrar o clima interno de verdade.</p></section>` : ''}`,
@@ -980,7 +1048,7 @@ function viewMais() {
     ['#/aparencia', '🎨', 'Aparência (Figma)', 'Cores, cantos, fonte, tokens'],
     ['#/sobre', '📲', 'Instalar no celular', 'E sobre o app']
   ];
-  return `<h1>Mais</h1><div class="card menu" style="margin-top:14px">${itens.map(([href, e, t, s]) => `<a href="${href}"><span class="ico">${e}</span><span class="txt"><b>${t}</b><small>${h(s)}</small></span><span class="muted">›</span></a>`).join('')}</div>
+  return `<h1>Mais</h1><div class="card menu" style="margin-top:14px">${itens.map(([href, e, t, s]) => `<a href="${href}"><span class="ico">${e}</span><span class="txt"><b>${t}</b><small>${h(s)}</small></span><span class="muted">${ic('Voltar', 'flip')}</span></a>`).join('')}</div>
   <label class="field"><span>Como posso te chamar?</span><input type="text" id="nomeUser" value="${h(cfg.nome)}" placeholder="Seu nome"></label>`;
 }
 
@@ -1069,12 +1137,12 @@ function htmlSerialAoVivo() {
   if (!serialPorta) return '<p class="small" style="margin:0">⚪ Desconectado</p>';
   if (!serialAoVivo) return '<p class="small" style="margin:0">🟢 Conectado — aguardando a primeira leitura…</p>';
   const s = serialAoVivo; const [cls, txt] = ESTADO_SERIAL[s.estado] || ['chip', s.estado || ''];
-  return `<div class="row wrap" style="gap:18px">
-    ${s.umidadeSolo != null ? `<div><div class="small muted">💧 Umidade do solo</div><span style="font-size:2rem;font-weight:700;color:var(--primary-strong)">${s.umidadeSolo}%</span> <span class="${cls}">${h(txt)}</span></div>` : ''}
-    ${s.luz != null ? `<div><div class="small muted">☀️ Luz</div><span style="font-size:2rem;font-weight:700;color:#b07d10">${s.luz}%</span> <span class="chip warn">${h(nivelLuz(s.luz))}</span>${s.lux != null ? `<div class="small muted">≈ ${s.lux.toLocaleString('pt-BR')} lux · ${s.ppfd} µmol/m²/s</div>` : ''}</div>` : ''}
-  </div><p class="small muted" style="margin:6px 0 0">bruto solo ${s.bruto ?? '—'} · bruto luz ${s.luzBruto ?? '—'} · ${new Date(s.data).toLocaleTimeString('pt-BR')}</p>${htmlLuzHoje()}`;
+  const tom = { ok: '', atencao: 'warn', seco: 'bad' }[s.estado] || '';
+  return `<div class="niveis">
+    ${s.umidadeSolo != null ? `<div class="nivel ${tom}"><div class="n-ico">${ic('Gota')}</div><div class="n-val">${s.umidadeSolo}%</div><div class="n-tit">Umidade do solo</div><small>${h(txt.replace(/^\S+\s/, ''))}</small><div class="n-bar"><i style="width:${Math.max(2, Math.min(100, s.umidadeSolo))}%"></i></div></div>` : ''}
+    ${s.luz != null ? `<div class="nivel luz"><div class="n-ico">${ic('Sol')}</div><div class="n-val">${s.luz}%</div><div class="n-tit">Luz</div><small>${h(nivelLuz(s.luz))}${s.lux != null ? ' · ≈ ' + s.lux.toLocaleString('pt-BR') + ' lux' : ''}</small><div class="n-bar"><i style="width:${Math.max(2, Math.min(100, s.luz))}%"></i></div></div>` : ''}
+  </div><p class="small muted" style="margin:10px 0 0">bruto solo ${s.bruto ?? '—'} · bruto luz ${s.luzBruto ?? '—'}${s.ppfd != null ? ' · ' + s.ppfd + ' µmol/m²/s' : ''} · ${new Date(s.data).toLocaleTimeString('pt-BR')}</p>${htmlLuzHoje()}`;
 }
-function atualizarAoVivoDom() { const el = $('#serialAoVivo'); if (el) el.innerHTML = htmlSerialAoVivo(); const ch = $('#chipSerial'); if (ch) ch.outerHTML = chipSerialHome(); }
 function chipSerialHome() {
   if (!serialPorta || !serialAoVivo) return '<span id="chipSerial"></span>';
   const [cls, txt] = ESTADO_SERIAL[serialAoVivo.estado] || ['chip', ''];
@@ -1176,7 +1244,7 @@ function htmlLuzHoje() {
   return `<div style="margin-top:10px;padding:10px 12px;background:var(--bg);border-radius:12px">
     <div class="row wrap between"><b class="small">☀️ Luz acumulada hoje</b><span class="small muted">medido por ${fmtHoras(d.segMed)}</span></div>
     <div class="row wrap" style="gap:16px;margin-top:4px"><span><b style="font-size:1.3rem">${fmtMol(d.mol)}</b> <span class="small muted">mol/m² (DLI)</span></span><span><b>${fmtHoras(d.segLuz)}</b> <span class="small muted">de luz útil</span></span></div>
-    ${alvo ? `<div class="small muted" style="margin-top:6px">${h(nomePlantio(p))}: meta ${alvo[0]}–${alvo[1]} mol/m²/dia</div><div style="height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:4px"><i style="display:block;height:100%;width:${pct}%;background:${pct >= 100 ? 'var(--primary)' : '#d19a0b'}"></i></div>` : ''}
+    ${alvo ? `<div class="small muted" style="margin-top:6px">${h(nomePlantio(p))}: meta ${alvo[0]}–${alvo[1]} mol/m²/dia</div><div class="barra-meta" style="height:8px;border-radius:99px;background:var(--neutral);overflow:hidden;margin-top:4px"><i style="display:block;height:100%;width:${pct}%;background:${pct >= 100 ? 'var(--primary)' : 'var(--warn)'}"></i></div>` : ''}
   </div>`;
 }
 function lerLinhaSensor(linha) {
@@ -1368,6 +1436,8 @@ function viewAparencia() {
   const raio = parseInt(tokenAtual('radius')) || 18;
   return {
     html: `<a href="#/mais" class="small">← Mais</a><h1 style="margin-top:8px">Aparência</h1>
+    <section class="card" style="margin-top:12px"><h3 style="margin-bottom:10px">Tema</h3><div class="temas">${[['clean', '☀️ Clean', ['#f2f6fc', '#12a35e', '#2458eb', '#f97316']], ['dark', '🌙 Dark', ['#0a1020', '#12a35e', '#6097fa', '#f97316']], ['agua', '💧 Água', ['#ecfeff', '#0891b2', '#2458eb', '#f97316']]].map(([k, n, c]) => `<button class="tema-op ${(cfg.temaBase || 'clean') === k ? 'sel' : ''}" data-act="tema-base" data-t="${k}"><div class="amostra" style="background:${c[0]};border:1px solid var(--line)">${c.slice(1).map((x, i) => `<i style="background:${x};height:${[100, 70, 45][i]}%"></i>`).join('')}</div><b>${n}</b></button>`).join('')}</div>
+      <p class="small muted" style="margin:10px 0 0">Os três temas são os mesmos do Figma (coleções "2 · Tema"). Os ajustes finos abaixo ficam por cima do tema escolhido.</p></section>
     <p class="muted small">Os nomes abaixo são os mesmos "tokens" do arquivo styles.css. Crie variáveis com esses nomes no Figma para manter tudo igual.</p>
     <section class="card"><div class="grid2">${TOKENS_EDITAVEIS.map(([k, l]) => `<label class="row small"><input type="color" class="swatch" data-tok="${k}" value="${h(tokenAtual(k).slice(0, 7))}"><span>${l}<br><code class="muted">--${k}</code></span></label>`).join('')}</div>
       <label class="field"><span>Arredondamento: <b id="rv">${raio}px</b></span><input type="range" min="0" max="28" value="${raio}" id="raio" style="width:100%"></label>
@@ -1398,6 +1468,8 @@ function viewSobre() {
 }
 
 /* =================== ROTEADOR =================== */
+const PAGINAS_GRADE = new Set(['mais', 'sensores', 'backup', 'ia', 'aparencia', 'sobre', 'clima']);
+let ultimaRota = null;
 function render() {
   const [rota, qs] = (location.hash.slice(1) || '/').split('?');
   const partes = rota.split('/').filter(Boolean); const params = new URLSearchParams(qs || '');
@@ -1420,9 +1492,15 @@ function render() {
     default: r = viewInicio();
   }
   const view = $('#view');
+  view.classList.remove('saindo');
+  view.className = 'view' + (PAGINAS_GRADE.has(partes[0]) ? ' pg' : '');
   if (typeof r === 'string') view.innerHTML = r; else { view.innerHTML = r.html; r.mount && r.mount(); }
+  iconizar(view);
+  const chave = partes.join('/') + '?' + (qs || '') + (partes[0] === 'dados' ? modoDados : '') + (partes[0] === 'plantios' ? filtroPlantios : '');
+  if (chave !== ultimaRota) { ultimaRota = chave; animarEntrada(view); contarNumeros(view); odometros(view); }
+  else view.querySelectorAll('[data-odometro]').forEach((el) => el.removeAttribute('data-odometro'));
   const tab = { '': 'inicio', plantios: 'plantios', p: 'plantios', editar: 'plantios', novo: 'novo', dados: 'dados', assistente: 'assistente' }[partes[0] || ''];
-  $$('.tabbar a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
+  $$('.tabbar a, .topnav a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
   // campos que salvam sozinhos
   const nomeU = $('#nomeUser'); if (nomeU) nomeU.onchange = () => { cfg.nome = nomeU.value.trim(); salvarCfg(); toast('Salvo ✓'); };
   const lt = $('#luzTipo'); if (lt) lt.onchange = () => { cfg.luz.tipo = lt.value; salvarCfg(); toast('Tipo de luz salvo ✓'); };
@@ -1475,6 +1553,7 @@ const ACOES = {
   'sensor-ler': async () => { ACOES['sensor-salvar'](); try { await lerSensor(); } catch (e) { toast('⚠ ' + e.message); } },
   'gist-salvar': () => { const novo = $('#gTok').value.trim(); if (novo !== cfg.gist.token) cfg.gist.id = ''; cfg.gist.token = novo; cfg.gist.auto = $('#gAuto').checked; salvarCfg(); toast('Salvo ✓'); },
   'gist-backup': async () => { ACOES['gist-salvar'](); try { await gistBackup(); render(); } catch (e) { toast('⚠ ' + e.message); } },
+  'tema-base': (d) => { cfg.temaBase = d.t; cfg.tema = {}; document.documentElement.removeAttribute('style'); salvarCfg(); aplicarTema(); toast('Tema aplicado ✓'); render(); },
   'gist-sync': async (d, b) => { ACOES['gist-salvar'](); if (b) { b.disabled = true; b.textContent = '🔄 Sincronizando…'; } try { cfg.gist.ultimoSync = 0; await gistSincronizar(false); } catch (e) { toast('⚠ ' + e.message); } render(); },
   'gist-restaurar': async () => { ACOES['gist-salvar'](); if (!confirm('Substituir os dados deste aparelho pelo backup da nuvem?')) return; try { await gistRestaurar(); toast('Restaurado da nuvem ✓'); location.hash = '#/'; render(); } catch (e) { toast('⚠ ' + e.message); } },
   'ia-salvar': () => { cfg.ia = { provedor: $('#iaProv').value, chave: $('#iaKey').value.trim(), modelo: $('#iaModel').value.trim(), baseUrl: $('#iaBase').value.trim() }; salvarCfg(); toast('IA salva ✓'); render(); },
@@ -1502,7 +1581,12 @@ document.addEventListener('click', (e) => {
 });
 
 /* =================== INÍCIO =================== */
-window.addEventListener('hashchange', () => { window.scrollTo(0, 0); viewAssistente._feito = false; render(); });
+window.addEventListener('hashchange', () => {
+  const view = $('#view'); viewAssistente._feito = false;
+  if (semMovimento() || !view.firstElementChild) { window.scrollTo(0, 0); render(); return; }
+  view.classList.add('saindo');
+  setTimeout(() => { window.scrollTo(0, 0); render(); }, 140);
+});
 window.addEventListener('online', async () => {
   atualizarRede(); toast('🟢 Conectado — sincronizando');
   try { await atualizarClima(); } catch {}
@@ -1513,6 +1597,7 @@ window.addEventListener('offline', () => { atualizarRede(); toast('🟠 Sem inte
 
 (async function iniciar() {
   carregarCfg(); aplicarTema(); atualizarRede();
+  iconizar(document.querySelector('.topbar')); iconizar(document.querySelector('.tabbar'));
   await carregarEstado();
   render();
   agendarSensor();

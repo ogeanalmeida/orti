@@ -3,182 +3,213 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Teste de sensores · Minha Horta</title>
+<title>Sensores · Minha Horta</title>
+<meta name="theme-color" content="#f2f6fc">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css?v=1.6.2">
+<script>try{document.documentElement.dataset.tema=(JSON.parse(localStorage.getItem('horta-config')||'{}').temaBase)||'clean'}catch(e){}</script>
 <style>
-/* Mesmos tokens do app Minha Horta (styles.css) */
-:root {
-  --primary: #2f8f4e; --primary-strong: #1f6b38; --primary-soft: #e6f4ea;
-  --accent: #f2b53a; --sun: #d19a0b; --sun-soft: #fdf3dc;
-  --danger: #d9534f; --danger-soft: #fbe7e6; --info: #3a8dde; --info-soft: #e5f0fb;
-  --bg: #f5f8f3; --card: #fff; --text: #1d2b22; --muted: #6b7c70; --line: #e3ebe4;
-  --radius: 18px;
-  --font: "Inter", "SF Pro Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, monospace;
-  --shadow: 0 1px 2px rgba(20,60,30,.06), 0 6px 20px rgba(20,60,30,.06);
-}
-* { box-sizing: border-box; }
-body { margin: 0; font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.45; -webkit-font-smoothing: antialiased; }
-h1, h2, h3 { margin: 0; line-height: 1.2; }
-h1 { font-size: 1.5rem; } h3 { font-size: 1rem; }
-.muted { color: var(--muted); } .small { font-size: .85rem; }
-.row { display: flex; gap: 10px; align-items: center; } .wrap { flex-wrap: wrap; } .between { justify-content: space-between; }
-.topbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--primary-strong); font-size: 1.1rem; }
-main { max-width: 980px; margin: 0 auto; padding: 18px 16px 40px; }
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
-.card + .card, .grid + .card, .card + .grid { margin-top: 14px; }
-.grid > .card { margin-top: 0; }
-.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; background: var(--primary-soft); color: var(--primary-strong); white-space: nowrap; }
-.chip.warn { background: var(--sun-soft); color: #8a6100; } .chip.bad { background: var(--danger-soft); color: #a3302c; }
-.chip.blue { background: var(--info-soft); color: #22609e; } .chip.gray { background: #eef1ef; color: var(--muted); }
-.btn { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer; color: var(--text); }
-.btn:hover { border-color: var(--primary); }
-.btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-.btn.primary:hover { background: var(--primary-strong); }
-.btn.soft { background: var(--primary-soft); border-color: transparent; color: var(--primary-strong); }
-.btn.sm { padding: 6px 12px; font-size: .85rem; border-radius: 10px; }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
-select, input[type=number] { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
-label.tog { display: inline-flex; gap: 6px; align-items: center; font-size: .9rem; cursor: pointer; }
-.hero { background: linear-gradient(135deg, var(--primary), var(--primary-strong)); color: #fff; border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
-.hero p { margin: 6px 0 0; opacity: .92; }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: #c9d3cc; display: inline-block; }
-.dot.on { background: #7be29a; box-shadow: 0 0 0 4px rgba(123,226,154,.25); animation: pulse 1.6s infinite; }
-@keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(123,226,154,.08); } }
-.gauge { display: flex; gap: 16px; align-items: center; }
-.gauge svg { flex: none; }
-.big { font-size: 2.4rem; font-weight: 700; letter-spacing: -.02em; }
-.kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-.kv div { background: var(--bg); border-radius: 12px; padding: 8px 10px; }
-.kv b { display: block; font-size: 1.05rem; }
-.kv span { font-size: .75rem; color: var(--muted); }
-.bar { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 8px; }
-.bar i { display: block; height: 100%; width: 0; border-radius: 99px; transition: width .4s; }
-#grafico { width: 100%; height: 220px; display: block; }
-.legend { display: flex; gap: 14px; font-size: .85rem; color: var(--muted); }
+/* Bancada de sensores: usa os tokens e componentes do app (styles.css) */
+.sens-hero { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.sens-hero .hero-ico { flex: none; width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; background: rgba(255,255,255,.2); }
+.sens-hero .hero-ico .i { width: 28px; height: 28px; }
+.st-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.55); display: inline-block; }
+.st-chip .dot.on { background: #8ff0ae; box-shadow: 0 0 0 0 rgba(143,240,174,.6); animation: pulsa 1.6s infinite; }
+@keyframes pulsa { 70% { box-shadow: 0 0 0 7px rgba(143,240,174,0); } 100% { box-shadow: 0 0 0 0 rgba(143,240,174,0); } }
+.ctl { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.ctl .row { gap: 8px; }
+.ctl label { display: inline-flex; gap: 6px; align-items: center; font-size: .85rem; color: var(--muted); }
+.ctl select { width: auto; padding: 8px 10px; }
+.sens-grid { display: grid; gap: 14px; margin-top: 14px; }
+.sens-grid > * { margin: 0 !important; min-width: 0; }
+.niveis.dois { grid-template-columns: 1fr 1fr; }
+.nivel .n-val { transition: color .3s; }
+.nivel .n-bar i { transition: width .5s cubic-bezier(.2,.8,.2,1), background .3s; }
+.nivel .chip { margin-top: 8px; }
+.nivel .n-bruto { font-size: .75rem; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.mini-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.mini-tiles div { background: var(--neutral); border-radius: 12px; padding: 8px 6px; text-align: center; }
+.mini-tiles b { display: block; font-weight: 500; font-variant-numeric: tabular-nums; }
+.mini-tiles span { font-size: .7rem; color: var(--muted); }
+.tiles.quatro { grid-template-columns: repeat(2, 1fr); margin-top: 12px; }
+.tiles.quatro .tile b { font-size: 1.4rem; }
+#vHoras { font-size: 1rem; line-height: 1.75; white-space: nowrap; }
+.sec-title { display: flex; align-items: center; gap: 8px; margin: 0; }
+.sec-title .i { width: 20px; height: 20px; color: var(--primary); }
+.head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+#grafico { width: 100%; height: 220px; display: block; margin-top: 10px; }
+.legend { display: flex; gap: 14px; font-size: .8rem; color: var(--muted); }
 .legend i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
-.log { font-family: var(--mono); font-size: .8rem; background: #17221b; color: #b9f5c8; border-radius: 12px; padding: 10px 12px; height: 210px; overflow: auto; white-space: pre-wrap; margin-top: 10px; }
+.stats-line { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .8rem; color: var(--muted); margin-top: 6px; }
+.stats-line b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+.barra-meta { height: 10px; border-radius: 99px; background: var(--neutral); overflow: hidden; margin-top: 8px; }
+.barra-meta i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--accent); transition: width .5s; }
+.calib { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.calib .box { border: 1px dashed var(--line-strong, var(--line)); border-radius: 12px; padding: 12px; }
+.calib .box b { display: flex; align-items: center; gap: 6px; font-size: .85rem; font-weight: 500; }
+.calib .box b .i { width: 16px; height: 16px; color: var(--primary); }
+pre.code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .78rem; background: var(--neutral); border-radius: 12px; padding: 10px 12px; overflow: auto; margin: 12px 0 0; }
+.log { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .78rem; background: #111a24; color: #b9f5c8; border-radius: 12px; padding: 10px 12px; height: 210px; overflow: auto; white-space: pre-wrap; margin-top: 10px; }
 .log .err { color: #ffb4ae; } .log .info { color: #9cc7ff; }
-.calib { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-.calib .box { border: 1px dashed var(--line); border-radius: 12px; padding: 10px; }
-pre.code { font-family: var(--mono); font-size: .8rem; background: var(--bg); border-radius: 12px; padding: 10px 12px; overflow: auto; margin: 10px 0 0; }
-.aviso { background: var(--sun-soft); color: #6d4c00; border-radius: 12px; padding: 10px 12px; font-size: .9rem; margin-top: 10px; }
-.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); background: #1d2b22; color: #fff; padding: 10px 16px; border-radius: 12px; opacity: 0; transition: .25s; pointer-events: none; z-index: 10; }
-.toast.show { opacity: 1; transform: translateX(-50%); }
+.log div { animation: fade .25s both; }
+.alerta[hidden] { display: none; }
+details summary { cursor: pointer; font-size: .9rem; font-weight: 500; color: var(--link, var(--primary)); }
+label.tog { display: inline-flex; gap: 6px; align-items: center; font-size: .85rem; color: var(--muted); cursor: pointer; }
+label.tog input { width: auto; accent-color: var(--primary); }
+code { font-size: .8em; background: var(--neutral); padding: 1px 5px; border-radius: 5px; }
+.flash { animation: flash .6s; }
+@keyframes flash { 0% { transform: scale(1); } 30% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@media (min-width: 900px) {
+  .sens-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; align-items: start; }
+  .sens-grid > .larga { grid-column: 1 / -1; }
+  .tiles.quatro { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 420px) { .niveis.dois { grid-template-columns: 1fr; } .calib { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">🌱 Minha Horta <span class="chip gray" style="margin-left:4px">teste de sensores</span></div>
-  <div class="row small"><span id="dot" class="dot"></span><span id="status" class="muted">desconectado</span></div>
+  <a class="brand" href="./#/"><span class="brand-logo" data-ic="Plantios"></span><span class="brand-name">Minha Horta</span></a>
+  <nav class="topnav" aria-label="Menu">
+    <a href="./#/"><span data-ic="Início"></span>Início</a>
+    <a href="./#/plantios"><span data-ic="Plantios"></span>Plantios</a>
+    <a href="./#/dados"><span data-ic="Dados"></span>Dados</a>
+    <a href="teste-sensores.html" class="active"><span data-ic="Sensor"></span>Sensores</a>
+    <a href="./#/assistente"><span data-ic="Assistente"></span>Assistente</a>
+  </nav>
+  <div class="top-actions">
+    <a href="teste-sensores.html" class="icon-btn top-sens ativo" aria-label="Sensores" title="Sensores"><span data-ic="Sensor"></span></a>
+    <a href="./#/clima" class="icon-btn" aria-label="Clima" title="Clima"><span data-ic="Sol"></span></a>
+    <a href="./#/mais" class="icon-btn" aria-label="Mais opções" title="Mais opções"><span data-ic="Ajustes"></span></a>
+  </div>
 </header>
 
-<main>
-  <section class="hero">
-    <h1>Bancada de teste 🔬</h1>
-    <p>Lê ao vivo o sensor de umidade do solo e o sensor de luz (LDR) do Arduino pelo cabo USB. Nada é salvo no app: esta página é só para conferir e calibrar.</p>
-  </section>
-
-  <section class="card">
-    <div class="row wrap between">
-      <div class="row wrap">
-        <button class="btn primary" id="btnConectar">🔌 Conectar Arduino</button>
-        <button class="btn" id="btnDesconectar" disabled>Desconectar</button>
-        <button class="btn soft" id="btnDemo">▶ Modo demonstração</button>
+<main class="view">
+  <section class="card hero">
+    <div class="sens-hero">
+      <div>
+        <h1>Sensores</h1>
+        <p class="muted" style="margin:4px 0 0">Umidade do solo e luz ao vivo, direto do Arduino pelo cabo USB. Aqui você confere e calibra; nada vai para os plantios.</p>
+        <span class="hero-chip st-chip"><span id="dot" class="dot"></span><span id="status">desconectado</span></span>
       </div>
-      <div class="row wrap small">
-        <label>Velocidade <select id="baud"><option>9600</option><option>57600</option><option>115200</option></select></label>
-        <label class="tog"><input type="checkbox" id="bip"> Bip quando secar</label>
-      </div>
+      <div class="hero-ico" data-ic="Sensor"></div>
     </div>
-    <div id="semSerial" class="aviso" hidden>⚠ Este navegador não lê o cabo USB. Abra esta página no <b>Chrome</b>, <b>Edge</b> ou <b>Opera</b>. O Modo demonstração funciona em qualquer navegador.</div>
-    <p class="small muted" style="margin:10px 0 0">Antes de conectar, feche o Monitor Serial do Arduino IDE. Só um programa pode usar a porta por vez.</p>
   </section>
 
-  <div class="grid">
-    <section class="card">
-      <div class="row between"><h3>💧 Umidade do solo</h3><span id="umChip" class="chip gray">aguardando</span></div>
-      <div class="gauge" style="margin-top:10px">
-        <svg width="110" height="110" viewBox="0 0 110 110"><circle cx="55" cy="55" r="46" fill="none" stroke="var(--line)" stroke-width="12"/><circle id="umArc" cx="55" cy="55" r="46" fill="none" stroke="var(--info)" stroke-width="12" stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="289" transform="rotate(-90 55 55)" style="transition:stroke-dashoffset .5s,stroke .3s"/></svg>
-        <div><div class="big" id="umVal" style="color:var(--info)">—</div><div class="small muted">bruto <b id="umBruto">—</b> / 1023</div></div>
+  <div id="semSerial" class="alerta" style="margin-top:14px" hidden><span data-ic="Alerta"></span><div><b>Este navegador não lê o cabo USB.</b><div class="small">Abra no Chrome, Edge ou Opera do computador. O modo demonstração funciona em qualquer lugar.</div></div></div>
+  <div id="alertaSeco" class="alerta bad" style="margin-top:14px" hidden><span data-ic="Alerta"></span><div><b>Solo seco</b><div class="small">A umidade caiu abaixo de 30%. Hora de regar.</div></div></div>
+
+  <div class="sens-grid">
+    <section class="card larga">
+      <div class="ctl">
+        <div class="row wrap">
+          <button class="btn primary" id="btnConectar"><span data-ic="Plug"></span>Conectar Arduino</button>
+          <button class="btn" id="btnDesconectar" disabled>Desconectar</button>
+          <button class="btn soft" id="btnDemo"><span data-ic="Atividade"></span><span id="demoTxt">Modo demonstração</span></button>
+        </div>
+        <div class="row wrap">
+          <label>Velocidade <select id="baud"><option>9600</option><option>57600</option><option>115200</option></select></label>
+          <label class="tog"><input type="checkbox" id="bip"> Bip quando secar</label>
+        </div>
       </div>
-      <div class="kv"><div><span>mínimo</span><b id="umMin">—</b></div><div><span>média</span><b id="umMed">—</b></div><div><span>máximo</span><b id="umMax">—</b></div></div>
+      <p class="small muted" style="margin:10px 0 0">Antes de conectar, feche o Monitor Serial do Arduino IDE. Só um programa pode usar a porta por vez.</p>
+    </section>
+
+    <section class="larga">
+      <div class="niveis dois">
+        <div class="nivel" id="nvUm">
+          <div class="n-ico"><span data-ic="Gota"></span></div>
+          <div class="n-val" id="umVal">—</div>
+          <div class="n-tit">Umidade do solo</div>
+          <span id="umChip" class="chip gray">aguardando</span>
+          <div class="n-bar"><i id="umBar" style="width:0"></i></div>
+          <div class="n-bruto">bruto <b id="umBruto">—</b> / 1023</div>
+          <div class="mini-tiles"><div><b id="umMin">—</b><span>mínimo</span></div><div><b id="umMed">—</b><span>média</span></div><div><b id="umMax">—</b><span>máximo</span></div></div>
+        </div>
+        <div class="nivel luz" id="nvLuz">
+          <div class="n-ico"><span data-ic="Sol"></span></div>
+          <div class="n-val" id="luzVal">—</div>
+          <div class="n-tit">Luz (LDR)</div>
+          <span id="luzChip" class="chip gray">aguardando</span>
+          <div class="n-bar"><i id="luzBar" style="width:0"></i></div>
+          <div class="n-bruto">bruto <b id="luzBruto">—</b> / 1023</div>
+          <div class="mini-tiles"><div><b id="luzMin">—</b><span>mínimo</span></div><div><b id="luzMed">—</b><span>média</span></div><div><b id="luzMax">—</b><span>máximo</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card larga">
+      <div class="head">
+        <h3 class="sec-title"><span data-ic="Tendência queda"></span>Últimos 2 minutos</h3>
+        <div class="legend"><span><i style="background:var(--info)"></i>Umidade %</span><span><i style="background:var(--accent)"></i>Luz %</span></div>
+      </div>
+      <svg id="grafico" viewBox="0 0 600 220" preserveAspectRatio="none"></svg>
+      <div class="stats-line">
+        <span>Leituras <b id="nLeit">0</b></span><span>Linhas/seg <b id="taxa">0</b></span><span>Última <b id="ultima">—</b></span><span>Ignoradas <b id="nErro">0</b></span>
+      </div>
+      <div class="row wrap" style="margin-top:12px;gap:8px">
+        <button class="btn sm" id="btnCsv"><span data-ic="Download"></span>Baixar CSV</button>
+        <button class="btn sm" id="btnZerar"><span data-ic="Sincronizar"></span>Zerar estatísticas</button>
+      </div>
     </section>
 
     <section class="card">
-      <div class="row between"><h3>☀️ Luz (LDR)</h3><span id="luzChip" class="chip gray">aguardando</span></div>
-      <div class="gauge" style="margin-top:10px">
-        <svg width="110" height="110" viewBox="0 0 110 110"><circle cx="55" cy="55" r="46" fill="none" stroke="var(--line)" stroke-width="12"/><circle id="luzArc" cx="55" cy="55" r="46" fill="none" stroke="var(--sun)" stroke-width="12" stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="289" transform="rotate(-90 55 55)" style="transition:stroke-dashoffset .5s"/></svg>
-        <div><div class="big" id="luzVal" style="color:var(--sun)">—</div><div class="small muted">bruto <b id="luzBruto">—</b> / 1023</div></div>
+      <div class="head"><h3 class="sec-title"><span data-ic="Folha"></span>Luz para plantas</h3><span class="chip orange">lux → PPFD → DLI</span></div>
+      <p class="small muted" style="margin:8px 0 0">O LDR não sabe o tipo de luz: escolha qual ilumina o vaso. A escolha e a calibração valem também para o app.</p>
+      <div class="grid2" style="margin-top:12px">
+        <label class="field"><span>Tipo de luz</span><select id="luzTipo"></select></label>
+        <label class="field"><span>Planta</span><select id="luzPlanta"></select></label>
       </div>
-      <div class="kv"><div><span>mínimo</span><b id="luzMin">—</b></div><div><span>média</span><b id="luzMed">—</b></div><div><span>máximo</span><b id="luzMax">—</b></div></div>
+      <div class="tiles quatro">
+        <div class="tile"><b id="vLux">—</b><span>lux estimado</span></div>
+        <div class="tile"><b id="vPpfd">—</b><span>PPFD µmol/m²/s</span></div>
+        <div class="tile"><b id="vDli">—</b><span>DLI na sessão</span></div>
+        <div class="tile"><b id="vHoras">—</b><span>luz útil / medido</span></div>
+      </div>
+      <div class="small muted" style="margin-top:12px" id="dliTxt">Meta da planta: —</div>
+      <div class="barra-meta"><i id="dliBar"></i></div>
+      <p class="small muted" style="margin:8px 0 0" id="dliProj"></p>
+      <details style="margin-top:12px"><summary>Calibrar o lux com o celular</summary>
+        <p class="small muted">Abra um app de luxímetro no celular, coloque-o colado no LDR (luz estável, nem escuro total nem lanterna) e digite o valor.</p>
+        <div class="row wrap" style="gap:8px"><input type="number" id="luxRef" placeholder="lux do celular" style="width:160px"><button class="btn sm soft" id="btnLuxCal">Calibrar</button><button class="btn sm" id="btnLuxReset">Voltar ao padrão</button><button class="btn sm" id="btnDliZerar">Zerar DLI</button></div>
+        <p class="small muted" style="margin:8px 0 0" id="luxFormula"></p>
+      </details>
+    </section>
+
+    <section class="card">
+      <h3 class="sec-title"><span data-ic="Microscópio"></span>Calibração</h3>
+      <p class="small muted" style="margin:8px 0 0">Coloque o sensor em cada situação, espere o número parar de mudar e toque no botão. No fim, copie as linhas para o código do Arduino.</p>
+      <div class="calib">
+        <div class="box"><b><span data-ic="Gota"></span>Solo</b>
+          <div class="row wrap" style="margin-top:8px;gap:6px"><button class="btn sm" data-cal="SOLO_SECO">No ar / seco</button><button class="btn sm" data-cal="SOLO_MOLHADO">Na água</button></div>
+        </div>
+        <div class="box"><b><span data-ic="Lâmpada"></span>Luz</b>
+          <div class="row wrap" style="margin-top:8px;gap:6px"><button class="btn sm" data-cal="LUZ_ESCURO">Tampado</button><button class="btn sm" data-cal="LUZ_MAXIMA">Lanterna</button></div>
+        </div>
+      </div>
+      <pre class="code" id="calCodigo"></pre>
+    </section>
+
+    <section class="card larga">
+      <div class="head">
+        <h3 class="sec-title"><span data-ic="Documento"></span>Monitor do cabo</h3>
+        <div class="row" style="gap:10px"><label class="tog"><input type="checkbox" id="pausar"> Pausar</label><button class="btn sm" id="btnLimpar">Limpar</button></div>
+      </div>
+      <div class="log" id="log"></div>
+      <p class="small muted" style="margin:8px 0 0">Formatos aceitos: <code>Umidade:62,Luz:40,SoloBruto:620,LuzBruto:410</code>, JSON (<code>{"umidade_solo":62,"luz":40}</code>) ou texto (<code>Umidade: 62% | Luz: 40%</code>).</p>
     </section>
   </div>
-
-  <section class="card">
-    <div class="row wrap between">
-      <h3>📈 Últimos 2 minutos</h3>
-      <div class="legend"><span><i style="background:var(--info)"></i>Umidade %</span><span><i style="background:var(--sun)"></i>Luz %</span></div>
-    </div>
-    <svg id="grafico" viewBox="0 0 600 220" preserveAspectRatio="none"></svg>
-    <div class="row wrap small muted" style="margin-top:6px;gap:16px">
-      <span>Leituras: <b id="nLeit">0</b></span><span>Linhas/seg: <b id="taxa">0</b></span><span>Última: <b id="ultima">—</b></span><span>Linhas ignoradas: <b id="nErro">0</b></span>
-    </div>
-    <div class="row wrap" style="margin-top:10px">
-      <button class="btn sm" id="btnCsv">⬇ Baixar CSV</button>
-      <button class="btn sm" id="btnZerar">Zerar estatísticas</button>
-    </div>
-  </section>
-
-  <section class="card">
-    <div class="row wrap between"><h3>🌱 Luz para plantas</h3><span class="small muted">lux → PPFD → DLI</span></div>
-    <p class="small muted" style="margin:6px 0 0">O LDR não sabe o tipo de luz: escolha qual ilumina o vaso. As configurações e a calibração ficam salvas e o app Minha Horta usa as mesmas (quando aberto pelo mesmo endereço, ex. localhost:8000).</p>
-    <div class="row wrap" style="margin-top:10px">
-      <label class="small">Tipo de luz <select id="luzTipo"></select></label>
-      <label class="small">Planta <select id="luzPlanta"></select></label>
-    </div>
-    <div class="kv" style="grid-template-columns:repeat(4,1fr)">
-      <div><span>lux (estimado)</span><b id="vLux">—</b></div>
-      <div><span>PPFD µmol/m²/s</span><b id="vPpfd">—</b></div>
-      <div><span>DLI nesta sessão</span><b id="vDli">—</b></div>
-      <div><span>luz útil / medido</span><b id="vHoras">—</b></div>
-    </div>
-    <div class="small muted" style="margin-top:10px" id="dliTxt">Meta da planta: —</div>
-    <div class="bar"><i id="dliBar" style="background:var(--sun)"></i></div>
-    <p class="small muted" style="margin:8px 0 0" id="dliProj"></p>
-    <details style="margin-top:10px"><summary class="small"><b>Calibrar o lux com o celular</b></summary>
-      <p class="small muted">Abra um app de luxímetro no celular, coloque-o colado no LDR (luz estável, nem escuro total nem lanterna) e digite o valor.</p>
-      <div class="row wrap"><input type="number" id="luxRef" placeholder="lux do celular" style="width:160px"><button class="btn sm soft" id="btnLuxCal">Calibrar</button><button class="btn sm" id="btnLuxReset">Voltar ao padrão</button><button class="btn sm" id="btnDliZerar">Zerar DLI da sessão</button></div>
-      <p class="small muted" style="margin:8px 0 0" id="luxFormula"></p>
-    </details>
-  </section>
-
-  <section class="card">
-    <h3>🎯 Calibração</h3>
-    <p class="small muted" style="margin:6px 0 0">Coloque o sensor em cada situação, espere o número parar de mudar e toque no botão. No fim, copie as linhas para o código do Arduino.</p>
-    <div class="calib">
-      <div class="box"><b class="small">Solo</b>
-        <div class="row wrap" style="margin-top:8px"><button class="btn sm" data-cal="SOLO_SECO">No ar / seco</button><button class="btn sm" data-cal="SOLO_MOLHADO">Na água</button></div>
-      </div>
-      <div class="box"><b class="small">Luz</b>
-        <div class="row wrap" style="margin-top:8px"><button class="btn sm" data-cal="LUZ_ESCURO">Tampado</button><button class="btn sm" data-cal="LUZ_MAXIMA">Lanterna</button></div>
-      </div>
-    </div>
-    <pre class="code" id="calCodigo"></pre>
-  </section>
-
-  <section class="card">
-    <div class="row wrap between">
-      <h3>🖥️ Monitor (o que chega do cabo)</h3>
-      <div class="row"><label class="tog small"><input type="checkbox" id="pausar"> Pausar</label><button class="btn sm" id="btnLimpar">Limpar</button></div>
-    </div>
-    <div class="log" id="log"></div>
-    <p class="small muted" style="margin:8px 0 0">Formatos aceitos: <code>Umidade:62,Luz:40,SoloBruto:620,LuzBruto:410</code>, JSON (<code>{"umidade_solo":62,"luz":40}</code>) ou texto (<code>Umidade: 62% | Luz: 40%</code>).</p>
-  </section>
 </main>
-<div class="toast" id="toast"></div>
 
+<nav class="tabbar" aria-label="Navegação principal">
+  <a href="./#/"><span data-ic="Início"></span><span>Início</span></a>
+  <a href="./#/plantios"><span data-ic="Plantios"></span><span>Plantios</span></a>
+  <a href="./#/novo" class="tab-add" aria-label="Novo plantio"><span data-ic="Adicionar"></span></a>
+  <a href="./#/dados"><span data-ic="Dados"></span><span>Dados</span></a>
+  <a href="./#/assistente"><span data-ic="Assistente"></span><span>Assistente</span></a>
+</nav>
+<div class="toast" id="toast"></div>
+<script src="icons.js?v=1.6.2"></script>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
@@ -214,7 +245,7 @@ function lerLinha(linha) {
 }
 
 /* ---------- luz para plantas (mesma lógica do app) ---------- */
-const TIPOS_LUZ = { sol: ['☀️ Sol (janela ou ar livre)', 0.0185], led: ['💡 LED branco comum', 0.015], ledfull: ['🌈 LED de cultivo branco', 0.017], cultivo: ['🟣 LED de cultivo roxo', 0.04], fluor: ['🔆 Fluorescente branca', 0.0135], sodio: ['🟠 Vapor de sódio', 0.0122] };
+const TIPOS_LUZ = { sol: ['Sol (janela ou ar livre)', 0.0185], led: ['LED branco comum', 0.015], ledfull: ['LED de cultivo branco', 0.017], cultivo: ['LED de cultivo roxo', 0.04], fluor: ['Fluorescente branca', 0.0135], sodio: ['Vapor de sódio', 0.0122] };
 const DLI_ALVO = { 'Alface': [12, 17], 'Rúcula': [12, 17], 'Coentro / cebolinha / salsinha': [10, 16], 'Manjericão': [12, 18], 'Couve': [12, 17], 'Microverdes': [6, 12], 'Morango': [15, 20], 'Tomate / pimenta / pepino': [20, 30], 'Mudas de maracujá': [15, 25] };
 const LUZ_PADRAO = { tipo: 'sol', r10: 15000, gama: 0.7, rFixo: 10000 };
 const LUX_UTIL = 1000;
@@ -245,31 +276,32 @@ function pintarDli(ppfd) {
   $('dliBar').style.width = Math.min(100, sessao.mol / alvo[0] * 100) + '%';
   if (ppfd != null) {
     const dliDia = ppfd * 0.0036 * 12;   // se essa luz durasse 12 h
-    $('dliProj').textContent = `Se a luz de agora (${Math.round(ppfd)} µmol/m²/s) durasse 12 h, a planta receberia ${dliDia.toFixed(1).replace('.', ',')} mol/m² no dia: ${dliDia < alvo[0] ? '⚠ abaixo da meta' : dliDia > alvo[1] * 1.5 ? 'bem acima da meta (cuidado com calor)' : '✅ dentro da meta'}.`;
+    $('dliProj').textContent = `Se a luz de agora (${Math.round(ppfd)} µmol/m²/s) durasse 12 h, a planta receberia ${dliDia.toFixed(1).replace('.', ',')} mol/m² no dia: ${dliDia < alvo[0] ? 'abaixo da meta' : dliDia > alvo[1] * 1.5 ? 'bem acima da meta (cuidado com calor)' : 'dentro da meta'}.`;
   }
   $('luxFormula').textContent = `Fórmula: R10 = ${Math.round(luzCfg.r10)} Ω · gama = ${luzCfg.gama} · resistor fixo = ${luzCfg.rFixo} Ω`;
 }
 $('luzTipo').innerHTML = Object.entries(TIPOS_LUZ).map(([k, [n]]) => `<option value="${k}" ${k === luzCfg.tipo ? 'selected' : ''}>${n}</option>`).join('');
 $('luzPlanta').innerHTML = Object.keys(DLI_ALVO).map((k) => `<option>${k}</option>`).join('');
 $('luzPlanta').value = localStorage.getItem('teste-planta') || 'Alface';
-$('luzTipo').onchange = () => { luzCfg.tipo = $('luzTipo').value; salvarLuzCfg(); toast('Tipo de luz salvo ✓'); };
+$('luzTipo').onchange = () => { luzCfg.tipo = $('luzTipo').value; salvarLuzCfg(); toast('Tipo de luz salvo'); };
 $('luzPlanta').onchange = () => { localStorage.setItem('teste-planta', $('luzPlanta').value); pintarDli(null); };
 $('btnLuxCal').onclick = () => {
   const ref = Number($('luxRef').value), b = ultimoBruto.luz;
   if (!(ref > 0)) return toast('Digite o valor de lux do celular');
-  if (b == null || b <= 0 || b >= 1023) return toast('⚠ Precisa de leitura de luz (nem escuro total nem saturada)');
+  if (b == null || b <= 0 || b >= 1023) return toast('Precisa de leitura de luz (nem escuro total nem saturada)');
   const R = luzCfg.rFixo * (1023 / b - 1);
   luzCfg.r10 = Math.round(R * Math.pow(ref / 10, luzCfg.gama)); salvarLuzCfg();
-  atualizarLuzPlanta(b); toast('✅ Calibrado: ' + luxDoBruto(b).toLocaleString('pt-BR') + ' lux');
+  atualizarLuzPlanta(b); toast('Calibrado: ' + luxDoBruto(b).toLocaleString('pt-BR') + ' lux');
 };
-$('btnLuxReset').onclick = () => { luzCfg = { ...LUZ_PADRAO, tipo: luzCfg.tipo }; salvarLuzCfg(); if (ultimoBruto.luz != null) atualizarLuzPlanta(ultimoBruto.luz); else pintarDli(null); toast('Fórmula padrão ✓'); };
+$('btnLuxReset').onclick = () => { luzCfg = { ...LUZ_PADRAO, tipo: luzCfg.tipo }; salvarLuzCfg(); if (ultimoBruto.luz != null) atualizarLuzPlanta(ultimoBruto.luz); else pintarDli(null); toast('Fórmula padrão restaurada'); };
 $('btnDliZerar').onclick = () => { sessao = { mol: 0, segLuz: 0, segMed: 0, ts: 0 }; pintarDli(null); };
 pintarDli(null);
 
 /* ---------- interface ---------- */
-const estadoSolo = (p) => p <= LIMITE_SECO ? ['seco', 'bad', '🔴 Seco', 'var(--danger)'] : p <= LIMITE_ATENCAO ? ['atencao', 'warn', '⚠ Quase seco', 'var(--accent)'] : ['ok', 'blue', '🌿 Úmido', 'var(--info)'];
-const nivelLuz = (p) => p < 10 ? ['gray', '🌑 Escuro'] : p < 35 ? ['warn', '🌥 Pouca luz'] : p < 70 ? ['warn', '⛅ Luz média'] : ['', '☀️ Luz forte'];
-const arco = (el, p) => { el.style.strokeDashoffset = 289 * (1 - Math.max(0, Math.min(100, p)) / 100); };
+const estadoSolo = (p) => p <= LIMITE_SECO ? ['seco', 'bad', 'Seco', 'bad'] : p <= LIMITE_ATENCAO ? ['atencao', 'warn', 'Quase seco', 'warn'] : ['ok', '', 'Úmido', ''];
+const nivelLuz = (p) => p < 10 ? ['gray', 'Escuro'] : p < 35 ? ['orange', 'Pouca luz'] : p < 70 ? ['orange', 'Luz média'] : ['', 'Luz forte'];
+const barra = (el, p) => { el.style.width = Math.max(2, Math.min(100, p)) + '%'; };
+const trocaNum = (el, txt) => { if (el.textContent !== txt) { el.textContent = txt; if (!semMov()) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } } };
 const fmt = (v) => isFinite(v) ? Math.round(v) + '%' : '—';
 
 function aplicar(r, bruta) {
@@ -277,17 +309,17 @@ function aplicar(r, bruta) {
   linhasSeg.push(t);
   if (r.um != null) {
     const [est, cls, txt, cor] = estadoSolo(r.um);
-    $('umVal').textContent = r.um + '%'; $('umVal').style.color = cor;
-    $('umArc').style.stroke = cor; arco($('umArc'), r.um);
+    trocaNum($('umVal'), r.um + '%'); $('nvUm').className = 'nivel ' + cor; barra($('umBar'), r.um);
+    $('alertaSeco').hidden = est !== 'seco';
     $('umChip').className = 'chip ' + cls; $('umChip').textContent = txt;
     const s = stats.um; s.min = Math.min(s.min, r.um); s.max = Math.max(s.max, r.um); s.soma += r.um; s.n++;
     $('umMin').textContent = fmt(s.min); $('umMax').textContent = fmt(s.max); $('umMed').textContent = fmt(s.soma / s.n);
-    if (est === 'seco' && estadoAnterior && estadoAnterior !== 'seco') { toast('🔴 Solo secou — hora de regar!'); if ($('bip').checked) bip(); }
+    if (est === 'seco' && estadoAnterior && estadoAnterior !== 'seco') { toast('Solo secou — hora de regar!'); if ($('bip').checked) bip(); }
     estadoAnterior = est;
   }
   if (r.luz != null) {
     const [cls, txt] = nivelLuz(r.luz);
-    $('luzVal').textContent = r.luz + '%'; arco($('luzArc'), r.luz);
+    trocaNum($('luzVal'), r.luz + '%'); barra($('luzBar'), r.luz);
     $('luzChip').className = 'chip ' + cls; $('luzChip').textContent = txt;
     const s = stats.luz; s.min = Math.min(s.min, r.luz); s.max = Math.max(s.max, r.luz); s.soma += r.luz; s.n++;
     $('luzMin').textContent = fmt(s.min); $('luzMax').textContent = fmt(s.max); $('luzMed').textContent = fmt(s.soma / s.n);
@@ -308,9 +340,9 @@ function desenhar() {
   const x = (t) => P + (W - 2 * P) * (1 - (agora - t) / JANELA_MS);
   const y = (v) => H - P - (H - 2 * P) * v / 100;
   let g = '';
-  for (const v of [0, 25, 50, 75, 100]) g += `<line x1="${P}" x2="${W - P}" y1="${y(v)}" y2="${y(v)}" stroke="#e3ebe4" stroke-width="1"/><text x="2" y="${y(v) + 4}" font-size="10" fill="#6b7c70">${v}</text>`;
-  g += `<rect x="${P}" y="${y(LIMITE_ATENCAO)}" width="${W - 2 * P}" height="${y(0) - y(LIMITE_ATENCAO)}" fill="rgba(217,83,79,.05)"/>`;
-  for (const [k, cor] of [['um', '#3a8dde'], ['luz', '#d19a0b']]) {
+  for (const v of [0, 25, 50, 75, 100]) g += `<line x1="${P}" x2="${W - P}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/><text x="2" y="${y(v) + 4}" font-size="10" fill="var(--muted)">${v}</text>`;
+  g += `<rect x="${P}" y="${y(LIMITE_ATENCAO)}" width="${W - 2 * P}" height="${y(0) - y(LIMITE_ATENCAO)}" fill="var(--danger)" fill-opacity=".05"/>`;
+  for (const [k, cor] of [['um', 'var(--info)'], ['luz', 'var(--accent)']]) {
     const ps = pontos.filter((p) => p[k] != null);
     if (ps.length < 2) continue;
     g += `<polyline fill="none" stroke="${cor}" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke" points="${ps.map((p) => x(p.t).toFixed(1) + ',' + y(p[k]).toFixed(1)).join(' ')}"/>`;
@@ -334,6 +366,11 @@ function processar(linha) {
   else { nErro++; $('nErro').textContent = nErro; logar(linha + '   ← ignorada', 'err'); }
 }
 function setStatus(txt, on) { $('status').textContent = txt; $('dot').className = 'dot' + (on ? ' on' : ''); }
+const semMov = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const icone = (n) => (window.ICONES && ICONES[n]) ? `<svg class="i" viewBox="0 0 24 24" fill="none" aria-hidden="true">${ICONES[n]}</svg>` : '';
+document.querySelectorAll('[data-ic]').forEach((el) => { if (!el.firstChild) el.innerHTML = icone(el.dataset.ic); });
+/* entrada em cascata dos blocos */
+if (!semMov()) document.querySelectorAll('.hero, .sens-grid > *, .nivel, .tile').forEach((el, i) => { el.style.animationDelay = Math.min(i * 45, 600) + 'ms'; el.classList.add('ent'); });
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), 3500); }
 function bip() { try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(); o.frequency.value = 880; o.connect(a.destination); o.start(); setTimeout(() => { o.stop(); a.close(); }, 250); } catch {} }
 
@@ -349,7 +386,7 @@ async function conectar() {
     await porta.open({ baudRate: Number($('baud').value) });
   } catch (e) {
     porta = null;
-    if (e.name !== 'NotFoundError') { logar('Erro ao abrir a porta: ' + e.message, 'err'); toast('⚠ Porta ocupada? Feche o Monitor Serial do Arduino IDE.'); }
+    if (e.name !== 'NotFoundError') { logar('Erro ao abrir a porta: ' + e.message, 'err'); toast('Porta ocupada? Feche o Monitor Serial do Arduino IDE.'); }
     return;
   }
   const info = porta.getInfo?.() || {};
@@ -380,13 +417,13 @@ async function desconectar(silencioso) {
   setStatus('desconectado', false);
   $('btnConectar').disabled = !('serial' in navigator); $('btnDesconectar').disabled = true;
 }
-if ('serial' in navigator) navigator.serial.addEventListener('disconnect', () => { if (porta) { toast('🔌 Cabo desconectado'); desconectar(); } });
+if ('serial' in navigator) navigator.serial.addEventListener('disconnect', () => { if (porta) { toast('Cabo desconectado'); desconectar(); } });
 
 /* ---------- modo demonstração ---------- */
 function iniciarDemo() {
   if (porta) return;
   let um = 70, luz = 55, k = 0;
-  setStatus('demonstração', true); $('btnDemo').textContent = '■ Parar demonstração';
+  setStatus('demonstração', true); $('demoTxt').textContent = 'Parar demonstração';
   logar('Modo demonstração: dados simulados', 'info');
   demoTimer = setInterval(() => {
     k++; um = Math.max(5, um - Math.random() * 1.6); if (um < 22 && Math.random() < .08) um = 75;
@@ -395,7 +432,7 @@ function iniciarDemo() {
     processar(`Umidade:${u},Luz:${l},SoloBruto:${Math.round(1023 - u * 6.73)},LuzBruto:${Math.round(50 + l * 9)}`);
   }, 1000);
 }
-function pararDemo() { if (!demoTimer) return; clearInterval(demoTimer); demoTimer = null; $('btnDemo').textContent = '▶ Modo demonstração'; if (!porta) setStatus('desconectado', false); }
+function pararDemo() { if (!demoTimer) return; clearInterval(demoTimer); demoTimer = null; $('demoTxt').textContent = 'Modo demonstração'; if (!porta) setStatus('desconectado', false); }
 
 /* ---------- calibração ---------- */
 function mostrarCal() {
@@ -408,8 +445,8 @@ const int LUZ_MAXIMA   = ${cal.LUZ_MAXIMA};`;
 }
 document.querySelectorAll('[data-cal]').forEach((b) => b.addEventListener('click', () => {
   const k = b.dataset.cal, v = k.startsWith('SOLO') ? ultimoBruto.solo : ultimoBruto.luz;
-  if (v == null) { toast('⚠ Ainda não chegou nenhum valor bruto desse sensor'); return; }
-  cal[k] = v; localStorage.setItem('teste-cal', JSON.stringify(cal)); mostrarCal(); toast(`✅ ${k} = ${v}`);
+  if (v == null) { toast('Ainda não chegou nenhum valor bruto desse sensor'); return; }
+  cal[k] = v; localStorage.setItem('teste-cal', JSON.stringify(cal)); mostrarCal(); toast(`${k} = ${v}`);
 }));
 mostrarCal();
 
