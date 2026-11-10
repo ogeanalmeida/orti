@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Minha Horta</title>
   <meta name="description" content="Monitoramento de hortaliças e mudas: plantios, diário, clima, sensores e assistente.">
-  <meta name="theme-color" content="#2f8f4e">
+  <meta name="theme-color" content="#f2f6fc">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -17,30 +17,36 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">
-      <span class="brand-logo">🌱</span>
-      <span class="brand-name">Minha Horta</span>
-    </div>
+    <a class="brand" href="#/"><span class="brand-logo" data-ic="Plantios"></span><span class="brand-name">Minha Horta</span></a>
+    <nav class="topnav" aria-label="Menu">
+      <a href="#/" data-tab="inicio"><span data-ic="Início"></span>Início</a>
+      <a href="#/plantios" data-tab="plantios"><span data-ic="Plantios"></span>Plantios</a>
+      <a href="#/dados" data-tab="dados"><span data-ic="Dados"></span>Dados</a>
+      <a href="#/assistente" data-tab="assistente"><span data-ic="Assistente"></span>Assistente</a>
+    </nav>
     <div class="top-actions">
+      <a href="#/novo" class="btn primary top-novo"><span data-ic="Adicionar"></span>Novo plantio</a>
       <span id="net" class="net" title="Status da conexão"></span>
-      <a href="#/clima" class="icon-btn" aria-label="Clima" title="Clima">☀️</a>
-      <a href="#/mais" class="icon-btn" aria-label="Mais opções" title="Sensores, backup, aparência">⚙️</a>
+      <a href="#/clima" class="icon-btn" aria-label="Clima" title="Clima"><span data-ic="Sol"></span></a>
+      <a href="#/mais" class="icon-btn" aria-label="Mais opções" title="Sensores, backup, aparência"><span data-ic="Ajustes"></span></a>
     </div>
   </header>
 
   <main id="view" class="view" aria-live="polite"></main>
 
   <nav class="tabbar" aria-label="Navegação principal">
-    <a href="#/" data-tab="inicio"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Início</span></a>
-    <a href="#/plantios" data-tab="plantios"><svg viewBox="0 0 24 24"><path d="M12 21v-9M12 12c0-4 3-7 8-7 0 5-3 8-8 7zM12 14c0-3-2.5-6-7-6 0 4 2.5 7 7 6z"/></svg><span>Plantios</span></a>
-    <a href="#/novo" data-tab="novo" class="tab-add" aria-label="Novo plantio"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></a>
-    <a href="#/dados" data-tab="dados"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Dados</span></a>
-    <a href="#/assistente" data-tab="assistente"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg><span>Assistente</span></a>
+    <a href="#/" data-tab="inicio"><span data-ic="Início"></span><span>Início</span></a>
+    <a href="#/plantios" data-tab="plantios"><span data-ic="Plantios"></span><span>Plantios</span></a>
+    <a href="#/novo" data-tab="novo" class="tab-add" aria-label="Novo plantio"><span data-ic="Adicionar"></span></a>
+    <a href="#/dados" data-tab="dados"><span data-ic="Dados"></span><span>Dados</span></a>
+    <a href="#/assistente" data-tab="assistente"><span data-ic="Assistente"></span><span>Assistente</span></a>
   </nav>
 
   <div id="toast" class="toast" role="status"></div>
   <div id="modal" class="modal" hidden></div>
 
+  <script>try{document.documentElement.dataset.tema=(JSON.parse(localStorage.getItem('horta-config')||'{}').temaBase)||'clean'}catch(e){}</script>
+  <script src="icons.js"></script>
   <script src="catalog.js"></script>
   <script src="app.js"></script>
 </body>
